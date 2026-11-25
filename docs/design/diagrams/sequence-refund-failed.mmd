@@ -1,0 +1,94 @@
+%% Purpose: Sequence diagram for refunding a Failed payment (Failed -> hold released -> Refunded, NOT US-27 Completed refund)
+%% Last updated: 2026-11-25
+%% Related stories: US-11, US-12, US-13, US-15, US-17, US-22, US-25, US-26
+%% Related FRs: FR-11, FR-12, FR-13, FR-22, FR-25, FR-26
+%% Note: Audit Log is a shared service (NOT a module) and is shown only where a money movement is recorded.
+
+sequenceDiagram
+    autonumber
+
+    participant AquaCo as AquaCo (External)
+    participant BillerInt as Biller Integration
+    participant Recon as Reconciliation
+    participant PayProc as Payment Processing
+    participant AccWallet as Accounts and Wallet
+    participant Audit as Audit Log (Shared)
+    participant Notif as Notifications
+    participant SMS as SMS/Push Provider (External)
+    actor Customer
+
+    Note over AquaCo,Customer: Worked example: 352.50 EGP held (bill 350.00 EGP + fee 2.50 EGP). This is Failed hold release, NOT US-27 Completed refund (Q12).
+
+    %% =========================================================
+    %% 1. Three triggers that put a payment in Failed
+    %% =========================================================
+    alt 1a. SentToBiller -> Failed (AquaCo refuses, hard case 3)
+        AquaCo-->>BillerInt: SOAP/XML error response (refused with error code)
+        BillerInt->>PayProc: reportBillerRefusal(paymentRef, BILLER_REFUSED, reasonCode)
+    else 1b. Unknown -> Failed (biller later refuses via callback or re-query)
+        AquaCo-->>BillerInt: Later refusal (callback or re-query 1, 5, 15 min)
+        BillerInt->>PayProc: reportBillerRefusal(paymentRef, BILLER_REFUSED, reasonCode)
+    else 1c. Unknown -> Failed (reconciliation finds no payment after 3 re-queries, Q11)
+        Recon->>Recon: Compare settlement file after 3 re-queries (1, 5, 15 min) - payment absent
+        Recon->>PayProc: markUnknownMissingInSettlement(paymentRef)
+        Note over Recon,PayProc: Only after 3 re-queries + missing in settlement is it safe to release funds (Q11)
+    end
+
+    %% =========================================================
+    %% 2. Legal transition check & PaymentStateHistory
+    %% =========================================================
+    PayProc->>PayProc: Verify transition is legal (SentToBiller or Unknown -> Failed)
+    PayProc->>PayProc: Transition to Failed and record UTC timestamp in PaymentStateHistory
+
+    %% =========================================================
+    %% 3. Failed -> Refunded: atomic hold release + ledger + audit (Q13, US-17)
+    %% =========================================================
+    PayProc->>AccWallet: releaseHold(walletId, paymentRef, amount=352.50 EGP)
+
+    rect rgb(232, 245, 233)
+        Note over PayProc,Audit: Atomic DB transaction: Failed -> Refunded + ledger entries + audit record
+        AccWallet->>AccWallet: Append LedgerEntry: customer held DEBIT -352.50 EGP
+        AccWallet->>AccWallet: Append LedgerEntry: customer available CREDIT +352.50 EGP
+        Note over AccWallet: Both bill (350.00) and fee (2.50) released (Q13). NO PayLink fee income and NO agent commission (US-17).
+        AccWallet->>Audit: writeAudit(who, whenUtc, HOLD_RELEASE_REFUND, reason, paymentRef)
+        AccWallet-->>PayProc: Hold released (availableBalance restored by +352.50 EGP)
+        PayProc->>PayProc: Transition Failed -> Refunded (final) + record UTC timestamp in PaymentStateHistory
+    end
+
+    Note over AccWallet: Ledger invariant: hold (-352.50 avail, +352.50 held) + release (-352.50 held, +352.50 avail) = 0.00 EGP sum
+
+    %% =========================================================
+    %% 4. Asynchronous Notification (Observer, Q16, US-22, US-23)
+    %% =========================================================
+    PayProc--)Notif: Publish PaymentRefundedEvent(paymentRef, 352.50 EGP, failureReason)
+    Note over PayProc,Notif: Asynchronous Observer - notification failure NEVER changes payment state (Q16)
+
+    Notif->>Notif: Render SMS & Push from template (amount, paymentRef, failureReason)
+    Notif->>SMS: Send SMS & Push notification
+
+    alt SMS/Push delivered
+        SMS-->>Notif: Delivered
+        Notif-->>Customer: SMS & Push received (payment failed, 352.50 EGP refunded, reason)
+    else SMS Provider fails (US-23)
+        SMS--xNotif: Delivery failed
+        Notif->>Notif: Retry up to 3 times, then mark status = UNDELIVERED (visible to Support)
+        Note over PayProc,Notif: Payment state remains Refunded regardless of notification failure (Q16)
+    end
+
+    %% =========================================================
+    %% 5. Guard branches (US-11: illegal transitions & idempotency)
+    %% =========================================================
+    alt Guard A: Automatic refund attempted while status is Unknown (US-11)
+        PayProc->>PayProc: Reject with ILLEGAL_TRANSITION and log attempt (Unknown is NEVER refunded automatically)
+    else Guard B: Duplicate release event on payment already Refunded
+        PayProc->>PayProc: Reject/ignore with ILLEGAL_TRANSITION and log (no second ledger entry)
+    else Guard C: Refund attempted on payment already Completed (final)
+        PayProc->>PayProc: Reject with ILLEGAL_TRANSITION and log (Completed is final; US-27 Could flow is separate)
+    end
+
+    %% =========================================================
+    %% 6. Hard case 7: Settlement file lists a Failed payment (US-26)
+    %% =========================================================
+    opt Hard case 7: Settlement file lists a payment that PayLink has as Failed (US-26)
+        Recon->>Recon: Flag difference for Support review (do NOT change payment state automatically)
+    end

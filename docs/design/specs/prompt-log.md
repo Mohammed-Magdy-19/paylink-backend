@@ -26,6 +26,7 @@
 | P-10 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create ER diagram](#p-10-create-er-diagram) | Created `docs/design/diagrams/er-diagram.mmd` with 20 tables matching `class-domain.mmd` 1-to-1, derived WALLET balances, append-only LEDGER_ENTRY/AUDIT_RECORD, and renumbered Q20→Q21 in `requirements.md`. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Flagged and resolved Q20/Q21 numbering conflict from P-09. |
 | P-11 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create use-case diagram](#p-11-create-use-case-diagram) | Created `docs/design/diagrams/use-case.mmd` (`flowchart LR`) with 7 actors, 27 use cases across modules/shared services, priority `classDef`s (`[M]`/`[S]`/`[C]`), and legend for system-rule stories. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify layout readability of cross-module `<<include>>` edges. |
 | P-12 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create pay-bill sequence diagram](#p-12-create-pay-bill-sequence-diagram) | Created `docs/design/diagrams/sequence-pay-bill.mmd` with worked example (350.00 + 2.50 = 352.50 EGP), all branches (confirm, refuse, 10s timeout, async notifications), and Q20 in `requirements.md`. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify `opt` + `alt` nesting and width in Mermaid renderer. |
+| P-13 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create refund-failed sequence diagram](#p-13-create-refund-failed-sequence-diagram) | Created `docs/design/diagrams/sequence-refund-failed.mmd` covering 3 Failed triggers, atomic 352.50 EGP hold release, async notifications, 3 ILLEGAL_TRANSITION guards, and hard case 7 opt block. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify `alt` blocks and participant layout in Mermaid renderer. |
 
 ---
 
@@ -905,6 +906,55 @@ Step 1: the plan. After my OK: file path, how you checked rendering, mismatch li
 Answer summary: Created `docs/design/diagrams/sequence-pay-bill.mmd` with worked example (350.00 + 2.50 = 352.50 EGP), all branches (confirm, refuse, 10s timeout, async notifications), and Q20 in `requirements.md`.
 Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify `opt` + `alt` nesting and width in Mermaid renderer.
 
+### P-13: Create refund-failed sequence diagram
+
+```text
+ROLE
+You are a senior software architect and Mermaid specialist helping a student team on PayLink (Egypt bill-payment and wallet backend). Correctness with money matters more than cleverness.
+
+CONTEXT (read first)
+AGENTS.md, your rules files (phase-1-scope, diagrams, money-and-domain, requirements-writing, ai-use-and-git), docs/requirements.md (sections 5, 6 and 9, especially US-11, US-12, US-13, US-15, US-17, US-22, US-26 and Q11, Q13, Q16), all specs in docs/design/specs/ (ledger-rules, state spec, module-interfaces) and the existing diagrams (state-payment.mmd, sequence-pay-bill.mmd). If two files disagree, stop and tell me which lines conflict.
+
+TASK
+Create docs/design/diagrams/sequence-refund-failed.mmd: a Mermaid sequenceDiagram (with autonumber) of "refund a FAILED payment" (Failed -> hold released -> Refunded). This is NOT the refund of a completed payment (US-27, a separate Could story, Q12). Mermaid only, no PlantUML, no images. Follow the /new-diagram workflow.
+
+PARTICIPANTS (module names exactly as in the brief)
+Biller Integration, AquaCo (external biller), Payment Processing, Accounts and Wallet, Reconciliation, Notifications, SMS/Push Provider (external), Customer. Audit Log is a shared service shown only where a money movement is recorded.
+
+IT MUST SHOW (worked example: 352.50 held = bill 350.00 + fee 2.50)
+1. Three triggers that put a payment in Failed, as an alt block:
+   a. SentToBiller -> Failed: AquaCo refuses with an error code (hard case 3).
+   b. Unknown -> Failed: the biller later refuses (callback or re-query result).
+   c. Unknown -> Failed: after the 3 re-queries (1, 5, 15 min) Reconciliation finds no payment in the settlement file (Q11). Note: only now is it safe to release the money.
+2. Payment Processing checks the transition is legal, writes Failed with a timestamp in the payment history.
+3. Failed -> Refunded: Accounts and Wallet releases the hold with ledger entries customer held -352.50 and customer available +352.50, written atomically with the state change in one database transaction. Both the bill amount (350.00) and the fee (2.50) are released (Q13). NO PayLink fee income entry and NO agent commission entry (US-17). Audit record written (who, when UTC, why, reference). Show that the ledger entries of this payment now sum to zero and available balance is restored by 352.50.
+4. Notifications sends the customer an SMS and push with the clear failure reason, asynchronously; an SMS provider failure is retried up to 3 times then marked undelivered and NEVER changes the payment state (Q16).
+5. Guard branches (alt/opt) that MUST appear:
+   - An automatic refund attempt while the payment is still Unknown is refused with ILLEGAL_TRANSITION and logged (US-11). Unknown is never refunded automatically.
+   - A second release attempt (duplicate event) on a payment already Refunded is refused or ignored and logged: no second ledger entry.
+   - A refund attempt on a Completed payment is refused with ILLEGAL_TRANSITION (Completed is final).
+6. A short opt note for hard case 7: if the settlement file lists a payment that PayLink has as Failed, it is only FLAGGED for support review, not changed automatically (US-26).
+
+CONSTRAINTS
+- Exact state names, ledger accounts and error codes from the specs. Exact decimals, EGP, 2 decimals.
+- Mermaid pitfalls: no semicolons or # in message text; use Note over/alt/opt/rect; keep it readable.
+- First lines are %% comments: purpose, last updated 2026-11-25, related US-11, US-12, US-13, US-15, US-17, US-22, US-25, US-26 and FR-11, FR-12, FR-13, FR-22, FR-25, FR-26.
+
+WORKFLOW
+1. Plan first: list participants, the numbered flow and branches, plus ambiguities with proposed defaults. STOP and wait for my OK.
+2. After OK, write the file.
+3. Check it renders: try npx -y @mermaid-js/mermaid-cli -i <file> -o <temp svg> (do not commit output). If you cannot run it, say so.
+4. Verify against diagrams.md: Failed -> hold released -> Refunded, ledger entries shown, Unknown NOT refunded. Compare with state-payment.mmd, sequence-pay-bill.mmd and ledger-rules.md. List every mismatch; fix those inside this file.
+5. Log: append a row to docs/design/specs/prompt-log.md (create with header if missing; do NOT write docs/prompt-log.md). Columns: Date (2026-11-25) | Author (<YOUR NAME>) | Stage (Design) | Tool and model (<tool/model>) | Prompt (verbatim; if over 15 lines put it in a "Full prompts" section at the bottom) | Summary of answer (2 lines) | Verdict: "DRAFT: verdict pending" + what was wrong, missing or risky in your FIRST version. Never invent the verdict.
+6. Git: branch docs/diagram-sequence-refund-failed, commit "docs: add refund-failed sequence diagram (AI: Antigravity/<model>)", push the branch. No merge, no push to main, no force-push, no tags. Tell me to open the PR.
+
+OUTPUT FORMAT
+Step 1: the plan. After my OK: file path, how you checked rendering, mismatch list, the prompt-log row, commit/push result.
+```
+
+Answer summary: Created `docs/design/diagrams/sequence-refund-failed.mmd` covering 3 Failed triggers, atomic 352.50 EGP hold release, async notifications, 3 ILLEGAL_TRANSITION guards, and hard case 7 opt block.
+Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify `alt` blocks and participant layout in Mermaid renderer.
+
 ---
 
 ## Prompt evolution
@@ -921,6 +971,7 @@ Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermai
 | P-09 | P-10 | From domain class diagram (`class-domain.mmd`) to relational ER diagram (`er-diagram.mmd`). | Map all 20 domain classes 1-to-1 to `UPPER_SNAKE` tables, add PK/FK/UK and cardinalities, and align system wallet ownership as Q21. |
 | P-10 | P-11 | From ER diagram (`er-diagram.mmd`) to system use-case diagram (`use-case.mmd`). | Cover all 30 user stories (`US-01`–`US-28` as actor use cases, `US-05`/`10`/`11`/`29`/`30` as system-rule legend entries) with exact priorities. |
 | P-11 | P-12 | From use-case diagram (`use-case.mmd`) to pay-bill sequence diagram (`sequence-pay-bill.mmd`). | Trace the end-to-end bill payment flow with exact worked amounts (`350.00 + 2.50 = 352.50 EGP`), atomic ledger transactions, timeout/refusal branches, and Q20. |
+| P-12 | P-13 | From pay-bill sequence (`sequence-pay-bill.mmd`) to failed-payment refund sequence (`sequence-refund-failed.mmd`). | Detail `Failed -> Refunded` hold release (`352.50 EGP`), `Unknown` no-auto-refund guards (`ILLEGAL_TRANSITION`), and hard case 7 reconciliation flagging. |
 
 ---
 
