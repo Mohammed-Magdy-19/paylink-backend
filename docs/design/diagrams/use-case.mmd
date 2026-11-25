@@ -1,0 +1,172 @@
+%% Purpose: PayLink system use-case diagram (Mermaid flowchart LR)
+%% Last updated: 2026-11-25
+%% Related stories: US-01 to US-30
+%% Related FRs: FR-1 to FR-28
+%% Note: Audit Log and Configuration are shared services, NOT modules.
+%% Note: Reporting (US-28) is listed per requirements.md section 10, not one of the 8 core modules.
+
+flowchart LR
+
+    %% =========================================================
+    %% Priority & Node Styles (readable in colour and B&W via [M]/[S]/[C])
+    %% =========================================================
+    classDef must fill:#e8f4fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    classDef should fill:#fff8e1,stroke:#ef6c00,stroke-width:2px,stroke-dasharray:5 3,color:#e65100
+    classDef could fill:#f5f5f5,stroke:#616161,stroke-width:1.5px,stroke-dasharray:2 3,color:#424242
+    classDef actor fill:#ffffff,stroke:#212121,stroke-width:2px,color:#000000
+    classDef legendBox fill:#fafafa,stroke:#9e9e9e,stroke-width:1px,color:#212121
+
+    %% =========================================================
+    %% Actors (outside system boundary)
+    %% =========================================================
+    ACT_CUST["Customer"]:::actor
+    ACT_AGENT["Agent"]:::actor
+    ACT_ADMIN["Admin"]:::actor
+    ACT_SUPPORT["Support Employee"]:::actor
+    ACT_BILLER["Biller<br/>(ElectroCo, AquaCo, TopUpNet, NetCo optional)"]:::actor
+    ACT_SMS["SMS / Push Provider"]:::actor
+    ACT_SCHED["Scheduler / Timer"]:::actor
+
+    %% =========================================================
+    %% System Boundary: PayLink
+    %% =========================================================
+    subgraph PayLink["PayLink"]
+        direction TB
+
+        subgraph MOD_ACC["Accounts and Wallet"]
+            UC01(["Register as a customer (US-01) [M]"]):::must
+            UC02(["Upgrade account to verified (US-02) [S]"]):::should
+            UC03(["View balance and history (US-03) [M]"]):::must
+            UC04(["Top up wallet (US-04) [M]"]):::must
+            UC04A(["Top up customer via agent cash (US-04, Q14) [M]"]):::must
+            UC21(["Block and unblock account (US-21) [S]"]):::should
+            UC12(["Hold and release funds (US-12) [M]"]):::must
+        end
+
+        subgraph MOD_CAT["Biller Catalog"]
+            UC06(["Manage billers and services (US-06) [M]"]):::must
+            UC07(["See billers and required fields (US-07) [M]"]):::must
+        end
+
+        subgraph MOD_PAY["Payment Processing"]
+            UC08(["Bill inquiry with fee and total (US-08) [M]"]):::must
+            UC09(["Pay a bill from wallet (US-09) [M]"]):::must
+            UC17(["Pay on behalf of customer & earn commission (US-17) [S]"]):::should
+            UC20(["Search payment by reference (US-20) [M]"]):::must
+            UC27R(["Request refund of completed payment (US-27) [C]"]):::could
+            UC27A(["Approve or reject refund (US-27) [C]"]):::could
+        end
+
+        subgraph MOD_INT["Biller Integration"]
+            UC15(["Call biller (US-15) [M]"]):::must
+            UC13T(["Handle biller timeout (US-13) [M]"]):::must
+            UC13Q(["Re-query Unknown payments 1, 5, 15 min (US-13) [M]"]):::must
+            UC14(["Handle TopUpNet async callback (US-14) [M]"]):::must
+        end
+
+        subgraph MOD_FEE["Fees and Commissions"]
+            UC16(["Calculate fee and promotion (US-16) [M]"]):::must
+        end
+
+        subgraph MOD_FRD["Fraud Checks"]
+            UC18(["Enforce amount and daily limits (US-18) [M]"]):::must
+            UC19(["Check velocity rule 5 per 60s (US-19) [S]"]):::should
+        end
+
+        subgraph MOD_NOT["Notifications"]
+            UC22(["Notify customer SMS and push (US-22) [M]"]):::must
+            UC23R(["Retry failed notifications max 3 (US-23) [S]"]):::should
+            UC23V(["View undelivered notifications (US-23) [S]"]):::should
+        end
+
+        subgraph MOD_REC["Reconciliation"]
+            UC26R(["Run nightly reconciliation (US-26) [S]"]):::should
+            UC26V(["Review reconciliation report (US-26) [S]"]):::should
+        end
+
+        subgraph SVC_SHARED["Shared Services (NOT modules)"]
+            UC25(["Write audit record (US-25) [M]"]):::must
+            UC24(["Change fees and limits at runtime (US-24) [S]"]):::should
+        end
+
+        subgraph MOD_REP["Reporting (Could)"]
+            UC28(["View admin daily totals (US-28) [C]"]):::could
+        end
+
+    end
+
+    %% =========================================================
+    %% Actor <-> Use Case Associations (plain lines, no arrowheads)
+    %% =========================================================
+    ACT_CUST --- UC01
+    ACT_CUST --- UC03
+    ACT_CUST --- UC04
+    ACT_CUST --- UC07
+    ACT_CUST --- UC08
+    ACT_CUST --- UC09
+    ACT_CUST --- UC22
+    ACT_CUST --- UC27R
+
+    ACT_AGENT --- UC04A
+    ACT_AGENT --- UC07
+    ACT_AGENT --- UC08
+    ACT_AGENT --- UC17
+
+    ACT_ADMIN --- UC02
+    ACT_ADMIN --- UC06
+    ACT_ADMIN --- UC24
+    ACT_ADMIN --- UC28
+
+    ACT_SUPPORT --- UC02
+    ACT_SUPPORT --- UC20
+    ACT_SUPPORT --- UC21
+    ACT_SUPPORT --- UC23V
+    ACT_SUPPORT --- UC26V
+    ACT_SUPPORT --- UC27A
+
+    ACT_BILLER --- UC15
+    ACT_BILLER --- UC13Q
+    ACT_BILLER --- UC14
+    ACT_BILLER --- UC26R
+
+    ACT_SMS --- UC22
+    ACT_SMS --- UC23R
+
+    ACT_SCHED --- UC13Q
+    ACT_SCHED --- UC23R
+    ACT_SCHED --- UC26R
+
+    %% =========================================================
+    %% Use Case <<include>> and <<extend>> Relationships
+    %% =========================================================
+    UC08 -. "<<include>>" .-> UC16
+    UC08 -. "<<include>>" .-> UC15
+
+    UC09 -. "<<include>>" .-> UC16
+    UC09 -. "<<include>>" .-> UC18
+    UC09 -. "<<include>>" .-> UC19
+    UC09 -. "<<include>>" .-> UC12
+    UC09 -. "<<include>>" .-> UC15
+    UC09 -. "<<include>>" .-> UC22
+    UC09 -. "<<include>>" .-> UC25
+
+    UC17 -. "<<include>>" .-> UC09
+    UC17 -. "<<include>>" .-> UC16
+
+    UC13T -. "<<extend>>" .-> UC09
+    UC14 -. "<<extend>>" .-> UC09
+    UC23R -. "<<extend>>" .-> UC22
+
+    UC02 -. "<<include>>" .-> UC25
+    UC06 -. "<<include>>" .-> UC25
+    UC21 -. "<<include>>" .-> UC25
+    UC24 -. "<<include>>" .-> UC25
+    UC27A -. "<<include>>" .-> UC25
+
+    %% =========================================================
+    %% Legend & System-Rule Stories (not actor goals)
+    %% =========================================================
+    subgraph LEGEND["Legend & System-Rule Stories"]
+        LEG_PRI["Priorities: [M] Must (solid blue) | [S] Should (dashed amber) | [C] Could (dotted grey)"]:::legendBox
+        LEG_SYS["System-rule stories (no actor):<br/>- US-05 [M] Ledger-based balances -> class-domain.mmd, er-diagram.mmd, ledger-rules.md<br/>- US-10 [M] Idempotent payment requests -> sequence-pay-bill.mmd, class-domain.mmd, er-diagram.mmd<br/>- US-11 [M] Enforce payment life cycle -> state-payment.mmd<br/>- US-29 [M] Add biller without changing modules -> class-domain.mmd, pattern-plan.md<br/>- US-30 [M] Concurrent payments never overdraw -> sequence-pay-bill.mmd, er-diagram.mmd, hard-cases.md"]:::legendBox
+    end

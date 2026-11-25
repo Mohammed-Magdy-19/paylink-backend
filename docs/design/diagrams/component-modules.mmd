@@ -1,0 +1,111 @@
+%% Purpose: Layered modular monolith component diagram for PayLink
+%% Last updated: 2026-11-25
+%% Related stories & NFRs: NFR-3, NFR-4, US-15, US-29
+%% Note: Extra diagram (diagrams.md). Audit Log and Configuration are shared services, NOT modules.
+%% Note: Each module owns its database tables; no module reads another module's tables directly.
+
+flowchart TB
+
+    classDef moduleBox fill:#e8f4fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    classDef sharedBox fill:#fff8e1,stroke:#ef6c00,stroke-width:2px,stroke-dasharray:5 3,color:#e65100
+    classDef extBox fill:#f5f5f5,stroke:#616161,stroke-width:2px,color:#212121
+    classDef adapterBox fill:#ffffff,stroke:#1565c0,stroke-width:1.5px,color:#0d47a1
+
+    %% =========================================================
+    %% Layer 1: Clients & API Boundary
+    %% =========================================================
+    subgraph CLIENTS["Clients & API Boundary"]
+        direction LR
+        APP["Mobile App & Agent Terminal"]:::extBox
+        ADMIN_UI["Admin & Support UI"]:::extBox
+        API["REST API Controllers"]:::moduleBox
+        APP --> API
+        ADMIN_UI --> API
+    end
+
+    %% =========================================================
+    %% Layer 2: PayLink Modular Monolith
+    %% =========================================================
+    subgraph MONOLITH["PayLink Modular Monolith"]
+        direction TB
+
+        PAY["Payment Processing"]:::moduleBox
+        ACC["Accounts and Wallet"]:::moduleBox
+        CAT["Biller Catalog"]:::moduleBox
+        FEE["Fees and Commissions"]:::moduleBox
+        FRD["Fraud Checks"]:::moduleBox
+        NOTIF["Notifications"]:::moduleBox
+        REC["Reconciliation"]:::moduleBox
+
+        subgraph INT["Biller Integration (NFR-4, US-29)"]
+            direction TB
+            ADAPTER_IF["BillerAdapter Interface"]:::adapterBox
+            ADP_ELEC["ElectroCoAdapter (REST/JSON)"]:::adapterBox
+            ADP_AQUA["AquaCoAdapter (SOAP/XML)"]:::adapterBox
+            ADP_TOP["TopUpNetAdapter (Async REST)"]:::adapterBox
+            ADP_NET["NetCoAdapter (CSV Batch, optional)"]:::adapterBox
+            ADAPTER_IF --> ADP_ELEC
+            ADAPTER_IF --> ADP_AQUA
+            ADAPTER_IF --> ADP_TOP
+            ADAPTER_IF --> ADP_NET
+        end
+
+        subgraph SHARED["Shared Services (NOT modules)"]
+            direction LR
+            AUDIT["Audit Log"]:::sharedBox
+            CFG["Configuration"]:::sharedBox
+        end
+    end
+
+    %% =========================================================
+    %% Layer 3: Persistence & External Systems
+    %% =========================================================
+    subgraph INFRA["Data & External Systems"]
+        direction LR
+        DB[("Relational Database<br/>(TBD / e.g. PostgreSQL)<br/>Module-owned tables only")]:::extBox
+        BILLERS["Mock Billers<br/>(ElectroCo, AquaCo, TopUpNet, NetCo optional)"]:::extBox
+        SMS_EXT["SMS / Push Provider"]:::extBox
+    end
+
+    %% =========================================================
+    %% Public Interface Calls (no direct cross-module table reads)
+    %% =========================================================
+    API -->|"pay, inquire, history, admin/support"| PAY
+    API -->|"register, top up, block, verify"| ACC
+    API -->|"list/manage billers"| CAT
+    API -->|"update rules/limits"| CFG
+    API -->|"view report"| REC
+
+    PAY -->|"get account & limits, hold funds, settle, release hold"| ACC
+    PAY -->|"get active biller & required fields"| CAT
+    PAY -->|"calculate fee & agent commission"| FEE
+    PAY -->|"evaluate rules"| FRD
+    PAY -->|"inquire bill, pay bill, query status"| ADAPTER_IF
+
+    %% Async Event Flow (in-process Phase 1, broker Phase 2)
+    PAY -. "publish PaymentResultEvent<br/>(async: in-process Phase 1 / broker Phase 2)" .-> NOTIF
+
+    %% Callback & Reconciliation Flows
+    ADAPTER_IF -->|"deliver async callback"| PAY
+    REC -->|"fetch settlement file"| ADAPTER_IF
+    REC -->|"confirm Unknown or mark Failed"| PAY
+
+    %% Shared Service Calls
+    PAY -->|"write audit record"| AUDIT
+    ACC -->|"write audit record"| AUDIT
+    CAT -->|"write audit record"| AUDIT
+    CFG -->|"write audit record"| AUDIT
+
+    FRD -->|"read limits & velocity"| CFG
+    FEE -->|"read fee rules & promotions"| CFG
+    ADAPTER_IF -->|"read timeouts & retries"| CFG
+    NOTIF -->|"read retry policy"| CFG
+    CAT -->|"read biller config (US-29)"| CFG
+
+    %% External & Persistence Connections
+    MONOLITH -->|"persist module-owned tables"| DB
+    ADP_ELEC -->|"REST/JSON (10s timeout)"| BILLERS
+    ADP_AQUA -->|"SOAP/XML (10s timeout)"| BILLERS
+    ADP_TOP -->|"Async REST + callback"| BILLERS
+    ADP_NET -->|"Daily CSV batch"| BILLERS
+    NOTIF -->|"send SMS & push (max 3 retries)"| SMS_EXT

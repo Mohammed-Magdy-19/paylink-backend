@@ -1,0 +1,276 @@
+%% Purpose: PayLink domain model class diagram (Mermaid classDiagram)
+%% Last updated: 2026-11-25
+%% Related stories: US-01 to US-07, US-09 to US-14, US-16 to US-26, US-27 (Could), US-29, US-30
+%% Related FRs: FR-1 to FR-28
+%% Note: AuditRecord and ConfigEntry are shared services, NOT modules.
+%% Note: Fraud Checks module operates on Account, ConfigEntry, and Payment history (no separate entity).
+%% Note: Wallet has NO stored balance; availableBalance() and heldBalance() are derived from LedgerEntry.
+
+classDiagram
+    direction TB
+
+    %% =========================================================
+    %% Module: Accounts and Wallet
+    %% =========================================================
+    class Account {
+        +UUID id
+        +String phoneNumber
+        +String name
+        +String role
+        +String verificationLevel
+        +String status
+        +DateTime blockedUntil
+        +DateTime createdAt
+    }
+
+    class Wallet {
+        +UUID id
+        +String walletType
+        +String currency
+        +availableBalance() Decimal
+        +heldBalance() Decimal
+    }
+
+    class LedgerEntry {
+        +UUID id
+        +UUID walletId
+        +LedgerAccount ledgerAccount
+        +String direction
+        +Decimal amount
+        +String paymentReference
+        +DateTime createdAt
+        +String actor
+        +String reason
+    }
+
+    class LedgerAccount {
+        <<enumeration>>
+        CUSTOMER_AVAILABLE
+        CUSTOMER_HELD
+        BILLER_PAYABLE
+        PAYLINK_FEE_INCOME
+        AGENT_WALLET
+        COMMISSION_EXPENSE
+    }
+
+    %% =========================================================
+    %% Module: Biller Catalog
+    %% =========================================================
+    class Biller {
+        +UUID id
+        +String code
+        +String name
+        +String protocol
+        +Boolean enabled
+        +Boolean supportsLiveInquiry
+    }
+
+    class BillerService {
+        +UUID id
+        +String code
+        +String name
+        +String serviceType
+        +Decimal minAmount
+        +Decimal maxAmount
+        +Boolean enabled
+    }
+
+    class BillerField {
+        +UUID id
+        +String fieldName
+        +String fieldType
+        +Boolean required
+        +String validationPattern
+    }
+
+    %% =========================================================
+    %% Module: Payment Processing
+    %% =========================================================
+    class Payment {
+        +String reference
+        +String idempotencyKey
+        +UUID customerAccountId
+        +UUID agentAccountId
+        +UUID billerServiceId
+        +Decimal billAmount
+        +Decimal feeAmount
+        +Decimal totalAmount
+        +PaymentStatus status
+        +DateTime createdAt
+    }
+
+    class PaymentStatus {
+        <<enumeration>>
+        Initiated
+        FundsHeld
+        SentToBiller
+        Completed
+        Failed
+        Unknown
+        Refunded
+        Rejected
+    }
+
+    class PaymentStateHistory {
+        +UUID id
+        +PaymentStatus fromState
+        +PaymentStatus toState
+        +String event
+        +String reason
+        +DateTime changedAt
+    }
+
+    class IdempotencyRecord {
+        +UUID id
+        +UUID accountId
+        +String idempotencyKey
+        +String payloadHash
+        +String paymentReference
+        +DateTime createdAt
+        +DateTime expiresAt
+    }
+
+    class RefundRequest {
+        <<Could US-27>>
+        +UUID id
+        +String paymentReference
+        +UUID requestedBy
+        +String status
+        +UUID reviewedBy
+        +String reason
+        +DateTime createdAt
+    }
+
+    %% =========================================================
+    %% Module: Biller Integration
+    %% =========================================================
+    class BillerCallback {
+        +UUID id
+        +String billerReference
+        +String externalStatus
+        +String payloadHash
+        +DateTime receivedAt
+        +Boolean processed
+    }
+
+    class RetryAttempt {
+        +UUID id
+        +Int attemptNumber
+        +DateTime scheduledAt
+        +DateTime executedAt
+        +String outcome
+    }
+
+    %% =========================================================
+    %% Module: Fees and Commissions
+    %% =========================================================
+    class FeeRule {
+        +UUID id
+        +String serviceType
+        +String feeType
+        +Decimal fixedAmount
+        +Decimal percentageRate
+        +Decimal minFee
+        +Decimal tierThreshold
+        +Decimal lowTierFee
+        +Decimal highTierFee
+    }
+
+    class Promotion {
+        +UUID id
+        +UUID billerId
+        +Decimal feeOverride
+        +DateTime startsAt
+        +DateTime endsAt
+        +Boolean active
+    }
+
+    %% =========================================================
+    %% Module: Notifications
+    %% =========================================================
+    class Notification {
+        +UUID id
+        +String channel
+        +String recipient
+        +String templateCode
+        +String status
+        +Int retryCount
+        +DateTime sentAt
+        +DateTime createdAt
+    }
+
+    class NotificationTemplate {
+        +String code
+        +String channel
+        +String bodyTemplate
+    }
+
+    %% =========================================================
+    %% Module: Reconciliation
+    %% =========================================================
+    class SettlementFile {
+        +UUID id
+        +UUID billerId
+        +Date settlementDate
+        +String fileName
+        +DateTime receivedAt
+    }
+
+    class ReconciliationItem {
+        +UUID id
+        +String paymentReference
+        +String externalReference
+        +String matchStatus
+        +String resolutionNote
+    }
+
+    %% =========================================================
+    %% Shared Services (NOT modules): Audit & Configuration
+    %% =========================================================
+    class AuditRecord {
+        +UUID id
+        +String who
+        +DateTime whenUtc
+        +String action
+        +String reason
+        +String relatedReference
+        +String beforeValue
+        +String afterValue
+    }
+
+    class ConfigEntry {
+        +String key
+        +String value
+        +String valueType
+        +DateTime updatedAt
+        +String updatedBy
+    }
+
+    %% =========================================================
+    %% Relationships
+    %% =========================================================
+    Account "1" -- "0..*" Wallet : owns
+    Wallet "1" -- "0..*" LedgerEntry : records
+    LedgerEntry ..> LedgerAccount : uses
+
+    Account "1" -- "0..*" Payment : initiates
+    Account "0..1" -- "0..*" Payment : facilitates
+    Account "1" -- "0..*" IdempotencyRecord : scopes
+
+    Payment "1" -- "1..*" PaymentStateHistory : tracks
+    Payment ..> PaymentStatus : has
+    Payment "1" -- "0..*" LedgerEntry : generates
+    Payment "1" -- "0..*" Notification : triggers
+    Payment "1" -- "0..*" RetryAttempt : schedules
+    Payment "1" -- "0..*" BillerCallback : receives
+    Payment "0..1" -- "0..1" RefundRequest : requests
+
+    Biller "1" -- "1..*" BillerService : offers
+    BillerService "1" -- "1..*" BillerField : requires
+    BillerService "1" -- "0..*" Payment : paid for
+    Biller "1" -- "0..*" Promotion : runs
+    Biller "1" -- "0..*" SettlementFile : provides
+
+    NotificationTemplate "1" -- "0..*" Notification : formats
+    SettlementFile "1" -- "1..*" ReconciliationItem : contains
+    Payment "0..1" -- "0..*" ReconciliationItem : matched against

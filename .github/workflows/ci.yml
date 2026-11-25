@@ -1,0 +1,51 @@
+name: CI
+
+# Run on every push (including tags like phase-1) and every pull request
+on:
+  push:
+  pull_request:
+
+# Least-privilege permissions: read repository contents only
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js with npm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.19.0"
+          cache: "npm"
+          cache-dependency-path: "app/package-lock.json"
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Lint code
+        working-directory: app
+        run: npm run lint
+
+      - name: Build application
+        working-directory: app
+        run: npm run build
+
+      - name: Build Docker image
+        run: docker build -t paylink-app:ci ./app
+
+      - name: Run tests
+        working-directory: app
+        run: npm test -- --json --outputFile=test-results.json
+
+      - name: Upload test results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jest-test-results
+          path: app/test-results.json

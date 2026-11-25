@@ -1,0 +1,183 @@
+%% Purpose: Sequence diagram for paying an electricity bill from wallet (worked example: 350.00 + 2.50 = 352.50 EGP)
+%% Last updated: 2026-11-25
+%% Related stories: US-08, US-09, US-10, US-12, US-13, US-15, US-16, US-17, US-18, US-19, US-22, US-25, US-30
+%% Related FRs: FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-16, FR-18, FR-22, FR-25
+%% Note: Audit Log is a shared service (NOT a module) and is shown only where a money movement is recorded.
+
+sequenceDiagram
+    autonumber
+
+    actor Customer
+    participant App as Mobile App
+    participant PayProc as Payment Processing
+    participant AccWallet as Accounts and Wallet
+    participant BillerCat as Biller Catalog
+    participant Fees as Fees and Commissions
+    participant Fraud as Fraud Checks
+    participant BillerInt as Biller Integration
+    participant ElectroCo as ElectroCo (External)
+    participant Notif as Notifications
+    participant SMS as SMS/Push Provider (External)
+    participant Audit as Audit Log (Shared)
+
+    Note over Customer,App: Worked example: basic customer, wallet available 1,000.00 EGP, ElectroCo bill 350.00 EGP + fee 2.50 EGP = 352.50 EGP
+
+    opt Agent-assisted payment (US-17)
+        Note over Customer,App: Agent initiates on behalf of customer via terminal (earns 40% of fee = 1.00 EGP on Completed)
+    end
+
+    %% =========================================================
+    %% Step 0: Idempotency check (US-10, Q9)
+    %% =========================================================
+    Customer->>App: Submit bill inquiry / pay request (meterNumber, idempotencyKey K)
+    App->>PayProc: payBill(accountId, billerServiceId, meterNumber, idempotencyKey K)
+
+    PayProc->>PayProc: Check IdempotencyRecord for (accountId, K) within 24h (Q9)
+    alt Same key K and same payload
+        PayProc-->>App: Return original cached result (no second charge or ledger entry)
+        App-->>Customer: Display original payment result
+    else Same key K and different payload
+        PayProc-->>App: Reject with IDEMPOTENCY_CONFLICT
+        App-->>Customer: Request conflict - key already used for a different payment
+    end
+
+    %% =========================================================
+    %% Step 1: Account, limits & active biller check (Q15, Q20)
+    %% =========================================================
+    PayProc->>AccWallet: getAccountAndLimits(accountId)
+    AccWallet-->>PayProc: role=BASIC, status=ACTIVE, dailyLimit=5,000.00 EGP, singleMin=5.00, singleMax=10,000.00
+
+    PayProc->>BillerCat: getActiveBillerService(ElectroCo)
+    alt Biller is disabled (Q15)
+        BillerCat-->>PayProc: BILLER_UNAVAILABLE
+        PayProc-->>App: Reject with BILLER_UNAVAILABLE
+        App-->>Customer: This biller is currently unavailable
+    else Biller is active
+        BillerCat-->>PayProc: Active service metadata (required field: meterNumber)
+    end
+
+    %% =========================================================
+    %% Step 2: Bill inquiry (US-08)
+    %% =========================================================
+    PayProc->>BillerInt: inquireBill(ElectroCo, meterNumber)
+    BillerInt->>ElectroCo: REST/JSON inquiry(meterNumber)
+    alt Bill not found
+        ElectroCo-->>BillerInt: 404 Not Found
+        BillerInt-->>PayProc: BILL_NOT_FOUND
+        PayProc-->>App: BILL_NOT_FOUND (no payment created)
+        App-->>Customer: Bill not found - please check meter number
+    else Bill found (350.00 EGP)
+        ElectroCo-->>BillerInt: billAmount = 350.00 EGP
+        BillerInt-->>PayProc: InquiryResult(350.00 EGP)
+    end
+
+    %% =========================================================
+    %% Step 3: Fee calculation & total shown (US-16)
+    %% =========================================================
+    PayProc->>Fees: calculateFee(ElectroCo, billAmount=350.00)
+    Fees-->>PayProc: feeAmount = 2.50 EGP, totalAmount = 352.50 EGP
+    PayProc-->>App: Preview(bill=350.00, fee=2.50, total=352.50 EGP)
+    App-->>Customer: Show amount 350.00 + fee 2.50 = total 352.50 EGP
+    Customer->>App: Confirm payment
+
+    %% =========================================================
+    %% Step 4: Create Initiated & Fraud Checks chain (US-18, US-19, Q20)
+    %% =========================================================
+    PayProc->>PayProc: Create Payment in Initiated + PaymentStateHistory
+    PayProc->>Fraud: runChecks(accountId, billAmount=350.00, Africa/Cairo daily total)
+    Note right of Fraud: Chain: single min/max (5.00..10,000.00) -> daily limit -> velocity (5 in 60s) -> account block
+
+    alt Any fraud or limit check fails
+        Fraud-->>PayProc: Rejected (BELOW_MIN_SINGLE / ABOVE_MAX_SINGLE / DAILY_LIMIT_EXCEEDED / VELOCITY_BLOCKED / ACCOUNT_BLOCKED)
+        PayProc->>PayProc: Transition Initiated -> Rejected (final)
+        PayProc-->>App: Payment Rejected with exact reason code (no hold, no ledger entry)
+        App-->>Customer: Show rejection reason
+    else All fraud checks pass
+        Fraud-->>PayProc: Checks passed
+    end
+
+    %% =========================================================
+    %% Step 5: Hold 352.50 EGP BEFORE calling biller (US-09, US-12, US-30)
+    %% =========================================================
+    PayProc->>AccWallet: holdFunds(walletId, paymentRef, amount=352.50 EGP)
+    Note over AccWallet: Concurrency (US-30): lock wallet row so parallel payments cannot overdraw below 0.00 EGP
+
+    alt Available balance < 352.50 EGP
+        AccWallet-->>PayProc: INSUFFICIENT_FUNDS
+        PayProc->>PayProc: Transition Initiated -> Rejected (final)
+        PayProc-->>App: Payment Rejected (INSUFFICIENT_FUNDS)
+        App-->>Customer: Insufficient wallet balance
+    else Sufficient balance (1,000.00 >= 352.50)
+        rect rgb(235, 248, 255)
+            Note over PayProc,Audit: Atomic DB transaction: state Initiated -> FundsHeld + ledger entries + audit record
+            AccWallet->>AccWallet: Append LedgerEntry: customer available DEBIT -352.50 EGP
+            AccWallet->>AccWallet: Append LedgerEntry: customer held CREDIT +352.50 EGP
+            AccWallet->>Audit: writeAudit(who, whenUtc, HOLD, paymentRef, 352.50 EGP)
+            AccWallet-->>PayProc: Hold committed (available=647.50, held=352.50 EGP)
+            PayProc->>PayProc: Transition Initiated -> FundsHeld
+        end
+    end
+
+    %% =========================================================
+    %% Step 6: Call ElectroCo with 10 s timeout (US-13, US-15, US-17)
+    %% =========================================================
+    PayProc->>PayProc: Transition FundsHeld -> SentToBiller
+    PayProc->>BillerInt: payBiller(ElectroCo, paymentRef, meterNumber, 350.00, timeout=10s)
+    BillerInt->>ElectroCo: REST/JSON pay(unique paymentRef, 350.00 EGP) [10 s timeout]
+
+    alt 6a. Biller confirms within 10 s -> Completed
+        ElectroCo-->>BillerInt: 200 OK (confirmed, billerRef)
+        BillerInt-->>PayProc: BillerConfirmed(billerRef)
+        rect rgb(232, 245, 233)
+            Note over PayProc,Audit: Atomic DB transaction: SentToBiller -> Completed + ledger entries + audit records
+            PayProc->>PayProc: Transition SentToBiller -> Completed (final)
+            PayProc->>AccWallet: settleCompletedPayment(paymentRef, bill=350.00, fee=2.50, optional agentId)
+            AccWallet->>AccWallet: Append LedgerEntry: customer held DEBIT -352.50 EGP
+            AccWallet->>AccWallet: Append LedgerEntry: biller payable CREDIT +350.00 EGP
+            AccWallet->>AccWallet: Append LedgerEntry: PayLink fee income CREDIT +2.50 EGP
+            opt Payment made via Agent (US-17: 40% of 2.50 EGP, half-up)
+                AccWallet->>AccWallet: Append LedgerEntry: commission expense DEBIT -1.00 EGP
+                AccWallet->>AccWallet: Append LedgerEntry: agent wallet CREDIT +1.00 EGP
+            end
+            AccWallet->>Audit: writeAudit(who, whenUtc, COMPLETE_SETTLE, paymentRef, 352.50 EGP)
+            AccWallet-->>PayProc: Settled
+        end
+        PayProc-->>App: Payment Completed + receipt
+        App-->>Customer: Payment Completed (352.50 EGP)
+
+    else 6b. Biller refuses -> Failed -> Refunded
+        ElectroCo-->>BillerInt: Error response (refused with error code)
+        BillerInt-->>PayProc: BILLER_REFUSED(reasonCode)
+        PayProc->>PayProc: Transition SentToBiller -> Failed
+        Note over PayProc,AccWallet: Hold release flow (Failed -> Refunded): see sequence-refund-failed.mmd
+        Note over BillerInt,ElectroCo: Example (US-15): AquaCo refuses with error code -> Failed -> hold released -> Refunded + SMS with reason
+        PayProc-->>App: Payment Failed - held funds refunded (BILLER_REFUSED)
+        App-->>Customer: Payment failed and 352.50 EGP refunded
+
+    else 6c. Timeout (no answer in 10 s, e.g. ElectroCo answers at 12 s) -> Unknown
+        BillerInt--xElectroCo: 10 s timeout expired
+        BillerInt-->>PayProc: TIMEOUT (PAYMENT_PROCESSING)
+        PayProc->>PayProc: Transition SentToBiller -> Unknown
+        Note over PayProc,AccWallet: No ledger entries written - 352.50 EGP stays in customer held. NEVER refunded automatically.
+        Note over PayProc,BillerInt: Scheduler re-queries at 1, 5, and 15 min (each attempt recorded), then waits for reconciliation.
+        PayProc-->>App: PAYMENT_PROCESSING (still being processed)
+        App-->>Customer: Your payment is still being processed (352.50 EGP held)
+    end
+
+    %% =========================================================
+    %% Step 7: Asynchronous Notification after payment result (Observer, Q16, US-22, US-23)
+    %% =========================================================
+    PayProc--)Notif: Publish PaymentResultEvent(paymentRef, status, amount, reason)
+    Note over PayProc,Notif: Asynchronous Observer - notification failure NEVER changes payment state (Q16)
+
+    Notif->>Notif: Render SMS & Push from NotificationTemplate (amount, paymentRef)
+    Notif->>SMS: Send SMS and Push notification
+
+    alt SMS/Push delivered
+        SMS-->>Notif: Delivered
+        Notif-->>Customer: SMS & Push received (352.50 EGP, paymentRef)
+    else SMS Provider down / fails (US-23)
+        SMS--xNotif: Delivery failed
+        Notif->>Notif: Retry up to 3 times, then after the 3rd failure mark status = UNDELIVERED (visible to Support)
+        Note over PayProc,Notif: Payment state remains unchanged (Completed / Refunded)
+    end
