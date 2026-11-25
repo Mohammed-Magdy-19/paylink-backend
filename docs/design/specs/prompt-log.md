@@ -21,6 +21,7 @@
 | P-05 | `2026-11-25` | `[Adham Mohamed]` | Documentation structure | `[Tool, model]` | [Split specs.md into six small files](#p-05-split-specsmd-into-six-small-files) | Requested splitting `specs.md` into six smaller files (prompt and answer text not provided). | TO BE FILLED BY THE TEAM (accepted / fixed / rejected, and why) |
 | P-06 | `2026-11-25` | `[Adham Mohamed]` | Documentation structure | `[Tool, model]` | [Split specs.md and delete it afterwards](#p-06-split-specsmd-and-delete-it-afterwards) | Split `specs.md` into six files under `docs/design/specs/`, provided coverage check, deleted `specs.md`, ran no-link check, and listed verification items. | TO BE FILLED BY THE TEAM (accepted / fixed / rejected, and why) |
 | P-07 | `2026-11-25` | `[Adham Mohamed]` | Process / logging | `[Tool, model]` | [Create prompt-log.md](#p-07-create-prompt-logmd) | Created `docs/design/specs/prompt-log.md` with header, summary table, full prompts, evolution table, honesty checklist, and change history, plus fill-in and verification lists. | TO BE FILLED BY THE TEAM (accepted / fixed / rejected, and why) |
+| P-08 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Claude Opus 4.6` | [Create payment state diagram](#p-08-create-payment-state-diagram) | Created `docs/design/diagrams/state-payment.mmd`: Mermaid stateDiagram-v2 with 8 states, 9 transitions, 3 final markers, 3 notes. Cross-checked against requirements.md §5 and all spec files; 0 mismatches. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. File naming note: AGENTS.md line 22 references `state-transitions.md` but actual file is `state-transactions.md`. |
 
 ---
 
@@ -679,6 +680,55 @@ OUTPUT FORMAT
 Answer summary: Created `docs/design/specs/prompt-log.md` with header, summary table, full prompts, evolution table, honesty checklist, and change history, plus fill-in and verification lists.
 Verdict: TO BE FILLED BY THE TEAM (accepted / fixed / rejected, and why)
 
+### P-08: Create payment state diagram
+
+```text
+ROLE
+You are a senior software architect and Mermaid specialist helping a student team on PayLink (Egypt bill-payment and wallet backend). Correctness with money matters more than cleverness.
+
+CONTEXT (read first)
+AGENTS.md, your rules files (phase-1-scope, diagrams, money-and-domain, requirements-writing, ai-use-and-git), docs/requirements.md (section 5 holds the full transition table; section 9 the decisions), and the specs in docs/design/specs/ (the state spec may be named state-transactions.md or state-transitions.md; it only holds Unknown-state amendments). Read any existing diagrams in docs/design/diagrams/. If two files disagree, stop and tell me which lines conflict.
+
+TASK
+Create docs/design/diagrams/state-payment.mmd: a Mermaid stateDiagram-v2 of the payment life cycle. Mermaid only, no PlantUML, no images. Follow the /new-diagram workflow.
+
+IT MUST CONTAIN EXACTLY
+- Eight states, exact names: Initiated, FundsHeld, SentToBiller, Completed, Failed, Unknown, Refunded, Rejected. No synonyms (not Pending/Success/Paid).
+- One initial arrow: [*] --> Initiated.
+- Exactly these 9 transitions, each labelled with its event:
+  1. Initiated -> FundsHeld: fraud checks pass and funds sufficient
+  2. Initiated -> Rejected: fraud check fails or insufficient funds
+  3. FundsHeld -> SentToBiller: request sent to biller
+  4. SentToBiller -> Completed: biller confirms
+  5. SentToBiller -> Failed: biller refuses
+  6. SentToBiller -> Unknown: no answer within 10 s timeout
+  7. Unknown -> Completed: biller later confirms (callback, retry or settlement)
+  8. Unknown -> Failed: biller later refuses, or reconciliation finds no payment
+  9. Failed -> Refunded: hold released to wallet
+- Final markers (state --> [*]) ONLY on Completed, Rejected and Refunded. Failed and Unknown are NOT final.
+- No other arrows: no self-loops, nothing leaving a final state, no Unknown -> Refunded, no Failed -> Completed. Retries that do not change state are explained in notes, not drawn.
+- Notes: on Unknown ("never refunded automatically; re-query 1, 5 and 15 minutes after the timeout, each attempt recorded; then waits for reconciliation"); on SentToBiller ("10 s timeout for live billers; TopUpNet stays here after 'accepted' until callback or reconciliation, Q10"); on Failed ("hold released including the fee, Q13").
+
+CONSTRAINTS
+- First lines are %% comments: purpose, last updated 2026-11-25, related stories US-11, US-12, US-13, US-14, US-26 and FR-11, FR-12, FR-13.
+- Avoid Mermaid pitfalls: no semicolons in labels, quote labels with special characters.
+- After the diagram, add a %% comment listing the 9 transitions so a reviewer can tick them off.
+
+WORKFLOW
+1. Plan first: list the states and 9 transitions you will draw and any ambiguity with a proposed default. STOP and wait for my OK.
+2. After OK, write the file.
+3. Check it renders: try npx -y @mermaid-js/mermaid-cli -i <file> -o <temp svg> (do not commit the output). If you cannot run it, say so; never claim it renders without checking.
+4. Count the arrows (must be 1 initial + 9 transitions + 3 finals) and compare with requirements.md section 5 and with the other diagrams/specs. List every mismatch; fix those inside this file.
+5. Log: append a row to docs/design/specs/prompt-log.md (create it with the header if empty or missing; do NOT write docs/prompt-log.md). Columns: Date (2026-11-25) | Author (<YOUR NAME>) | Stage (Design) | Tool and model (<tool/model>) | Prompt (this prompt verbatim; if over 15 lines, put it in a "Full prompts" section at the bottom and reference it) | Summary of answer (2 lines) | Verdict: "DRAFT: verdict pending" + a list of what was wrong, missing or risky in your FIRST version. Never invent the verdict.
+6. Git: new branch docs/diagram-state-payment, commit "docs: add payment state diagram (AI: Antigravity/<model>)", push the branch. Do not merge, push to main, force-push or create tags. Tell me to open the PR for teammate review.
+
+OUTPUT FORMAT
+Step 1: the plan. After my OK: file path, how you checked rendering, mismatch list, the prompt-log row, commit/push result.
+```
+
+Answer summary: Created `docs/design/diagrams/state-payment.mmd`: Mermaid stateDiagram-v2 with 8 states, 9 transitions, 3 final markers, 3 notes. Cross-checked against requirements.md §5 and all spec files; 0 mismatches.
+Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. File naming note: AGENTS.md line 22 references `state-transitions.md` but actual file is `state-transactions.md`.
+
 ---
 
 ## Prompt evolution
@@ -690,6 +740,7 @@ Verdict: TO BE FILLED BY THE TEAM (accepted / fixed / rejected, and why)
 | P-03 | P-04 | Moved the six specificity changes from `requirements.md` into a new, separate `specs.md` file. | Avoid editing `requirements.md` or adding new features/stories while keeping specifications separate. |
 | P-04 | P-05 | Split the single `specs.md` file into six smaller files under `docs/design/specs/`. | Organize Phase 1 documentation into topic-specific files. *(P-05 text not provided; based on P-04 and P-05 title.)* |
 | P-05 | P-06 | After the split, `specs.md` is deleted (with a coverage check and no-link check). | Avoid duplicate content across `specs.md` and the six split files. |
+| P-07 | P-08 | From creating the prompt log to creating the first design diagram (payment state machine). | Begin Phase 1 design deliverables using the established specs as the source of truth. |
 
 ---
 
