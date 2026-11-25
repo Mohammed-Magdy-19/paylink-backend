@@ -21,6 +21,7 @@
 | P-05 | `2026-11-25` | `[Adham Mohamed]` | Documentation structure | `[Tool, model]` | [Split specs.md into six small files](#p-05-split-specsmd-into-six-small-files) | Requested splitting `specs.md` into six smaller files (prompt and answer text not provided). | TO BE FILLED BY THE TEAM (accepted / fixed / rejected, and why) |
 | P-06 | `2026-11-25` | `[Adham Mohamed]` | Documentation structure | `[Tool, model]` | [Split specs.md and delete it afterwards](#p-06-split-specsmd-and-delete-it-afterwards) | Split `specs.md` into six files under `docs/design/specs/`, provided coverage check, deleted `specs.md`, ran no-link check, and listed verification items. | TO BE FILLED BY THE TEAM (accepted / fixed / rejected, and why) |
 | P-07 | `2026-11-25` | `[Adham Mohamed]` | Process / logging | `[Tool, model]` | [Create prompt-log.md](#p-07-create-prompt-logmd) | Created `docs/design/specs/prompt-log.md` with header, summary table, full prompts, evolution table, honesty checklist, and change history, plus fill-in and verification lists. | TO BE FILLED BY THE TEAM (accepted / fixed / rejected, and why) |
+| P-08 | `2026-11-25` | Mohamed Motaz Maher | Design (biller contracts) | Antigravity (Gemini) | [Create Phase 1 biller contract specs](#p-08-create-phase-1-biller-contract-specs) | Generated `electroco-v1.md`, `aquaco.md`, `topupnet.md`, and `netco.md` under `docs/design/billers/` aligned with `requirements.md` and `docs/design/specs/`. | Accepted: all four biller contracts follow Phase 1 scope, exact decimal EGP strings, and mock assumption rules (`Q18`/`Q19`). |
 
 ---
 
@@ -679,6 +680,55 @@ OUTPUT FORMAT
 Answer summary: Created `docs/design/specs/prompt-log.md` with header, summary table, full prompts, evolution table, honesty checklist, and change history, plus fill-in and verification lists.
 Verdict: TO BE FILLED BY THE TEAM (accepted / fixed / rejected, and why)
 
+### P-08: Create Phase 1 biller contract specs
+
+```text
+ROLE
+You are a senior backend architect and technical writer working on Phase 1
+of PayLink, an Egyptian bill-payment and digital wallet backend.
+
+CONTEXT
+We are in Phase 1 (documentation and DevOps skeleton only; no application or
+mock server code). The sources of truth are docs/requirements.md (v1.0) and
+docs/design/specs/ (business-rules.md, ledger-rules.md, module-interfaces.md,
+state-transactions.md, hard-cases.md). All money is exact 2-decimal EGP
+(never floats), and payment states are strictly: Initiated, FundsHeld,
+SentToBiller, Completed, Failed, Unknown, Refunded, Rejected.
+
+TASK
+Create the docs/design/billers/ folder containing concise (~1 page each)
+biller contract specifications:
+1. electroco-v1.md — Electricity (REST/JSON, synchronous < 1 s, live inquiry
+   by meterNumber, immediate confirmation, status re-query, Phase 2 v2 note).
+2. aquaco.md — Water (SOAP-style XML over HTTP, 2-4 s latency, SubscriberNo
+   per Q18, rejects overpayment above bill due, status re-query).
+3. topupnet.md — Mobile top-up (REST/JSON async, phoneNumber + amount,
+   NO_LIVE_INQUIRY, 202 "accepted" within 10 s per Q10, duplicate-safe
+   "success"/"failed" callbacks per US-14 / Hard Case 6, status re-query).
+4. netco.md — Internet, marked optional per FR-15 (daily batch CSV,
+   customerAccountNumber per Q19, NO_LIVE_INQUIRY, out of scope for live
+   10 s timeouts per Q10, next-morning result/settlement CSV).
+
+Each file must include: overview & configuration, request/response schemas,
+error & state mapping using module-interfaces.md codes, worked numeric
+examples from business-rules.md, nightly settlement CSV schema, and mock
+failure hooks for Hard Cases 2, 3, 6, 7 and NFR-3.
+
+CONSTRAINTS
+- Do not write any application, adapter, or mock server code.
+- Represent all JSON/XML/CSV money amounts as 2-decimal EGP strings.
+- Label unconfirmed mock field names, endpoints, and error codes as Phase 1
+  mock assumptions (referencing Q18/Q19).
+- Plan first and confirm ambiguities (such as netco.md) before writing.
+
+OUTPUT FORMAT
+Four Markdown files under docs/design/billers/ matching the header, table,
+and cross-link style of docs/design/specs/.
+```
+
+Answer summary: Generated `electroco-v1.md`, `aquaco.md`, `topupnet.md`, and `netco.md` under `docs/design/billers/` aligned with `requirements.md` and `docs/design/specs/`.
+Verdict: Accepted: all four biller contracts follow Phase 1 scope, exact decimal EGP strings, and mock assumption rules (`Q18`/`Q19`).
+
 ---
 
 ## Prompt evolution
@@ -708,3 +758,4 @@ Verdict: TO BE FILLED BY THE TEAM (accepted / fixed / rejected, and why)
 | Version | Date | Author | Change |
 |---|---|---|---|
 | 1.0 | _2026-11-25_ | _Adham Mohamed_ | First prompt log |
+| 1.1 | _2026-11-25_ | _Mohamed Motaz Maher_ | Added P-08 (Phase 1 biller contract specs) |
