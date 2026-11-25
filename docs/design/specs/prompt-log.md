@@ -23,6 +23,7 @@
 | P-07 | `2026-11-25` | `[Adham Mohamed]` | Process / logging | `[Tool, model]` | [Create prompt-log.md](#p-07-create-prompt-logmd) | Created `docs/design/specs/prompt-log.md` with header, summary table, full prompts, evolution table, honesty checklist, and change history, plus fill-in and verification lists. | TO BE FILLED BY THE TEAM (accepted / fixed / rejected, and why) |
 | P-08 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Claude Opus 4.6` | [Create payment state diagram](#p-08-create-payment-state-diagram) | Created `docs/design/diagrams/state-payment.mmd`: Mermaid stateDiagram-v2 with 8 states, 9 transitions, 3 final markers, 3 notes. Cross-checked against requirements.md §5 and all spec files; 0 mismatches. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. File naming note: AGENTS.md line 22 references `state-transitions.md` but actual file is `state-transactions.md`. |
 | P-09 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create domain class diagram](#p-09-create-domain-class-diagram) | Created `docs/design/diagrams/class-domain.mmd` with 21 domain classes + 2 enums grouped by module, derived Wallet balances, append-only LedgerEntry, and Q20 in `requirements.md`. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Check if 23 nodes in one file is readable or should be split. |
+| P-10 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create ER diagram](#p-10-create-er-diagram) | Created `docs/design/diagrams/er-diagram.mmd` with 20 tables matching `class-domain.mmd` 1-to-1, derived WALLET balances, append-only LEDGER_ENTRY/AUDIT_RECORD, and renumbered Q20→Q21 in `requirements.md`. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Flagged and resolved Q20/Q21 numbering conflict from P-09. |
 
 ---
 
@@ -771,6 +772,48 @@ Step 1: the plan. After my OK: file path, how you checked rendering, mismatch li
 Answer summary: Created `docs/design/diagrams/class-domain.mmd` with 21 domain classes + 2 enums grouped by module, derived Wallet balances, append-only LedgerEntry, and Q20 in `requirements.md`.
 Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Check if 23 nodes in one file is readable or should be split.
 
+### P-10: Create ER diagram
+
+```text
+ROLE
+You are a senior database designer and Mermaid specialist helping a student team on PayLink (Egypt bill-payment and wallet backend). Correctness with money matters more than cleverness.
+
+CONTEXT (read first)
+AGENTS.md, your rules files (phase-1-scope, diagrams, money-and-domain, requirements-writing, ai-use-and-git), docs/requirements.md (sections 4, 5, 6, 9), all specs in docs/design/specs/ (ledger-rules, module-interfaces, business-rules, hard-cases) and the existing diagrams class-domain.mmd and state-payment.mmd. If two files disagree, stop and tell me which lines conflict.
+
+TASK
+Create docs/design/diagrams/er-diagram.mmd: a Mermaid erDiagram of the PayLink relational database. Mermaid only, no PlantUML, no images. Follow the /new-diagram workflow.
+
+IT MUST CONTAIN
+- At least 10 tables (the brief requires it); aim for about 15-18, derived from the class-domain model. Entity names are the class names in UPPER_SNAKE singular (LedgerEntry -> LEDGER_ENTRY, Account -> ACCOUNT). Include at least: ACCOUNT, WALLET, LEDGER_ENTRY, PAYMENT, PAYMENT_STATE_HISTORY, IDEMPOTENCY_RECORD, BILLER, BILLER_SERVICE, BILLER_FIELD, FEE_RULE, PROMOTION, NOTIFICATION, BILLER_CALLBACK, RETRY_ATTEMPT, SETTLEMENT_FILE, RECONCILIATION_ITEM, AUDIT_RECORD, CONFIG_ENTRY (add NOTIFICATION_TEMPLATE and REFUND_REQUEST only if they fit; mark REFUND_REQUEST as Could).
+- WALLET has NO available_balance or held_balance column. Add an attribute comment stating balances are derived from LEDGER_ENTRY. LEDGER_ENTRY: id PK, wallet_id FK, ledger_account (the six accounts in ledger-rules.md), amount with direction (same convention as ledger-rules.md and the class diagram), payment_id FK (nullable for top-ups), created_at UTC, actor_id, reason. Comment: append-only, no updates or deletes.
+- PAYMENT: reference UK, status (the 8 exact states), bill_amount, fee_amount, total_amount, customer_account_id FK, agent_account_id FK nullable, biller_service_id FK, created_at. PAYMENT_STATE_HISTORY records every transition with timestamp.
+- IDEMPOTENCY_RECORD: unique per (account_id, key), request hash for conflict detection, expires_at = created + 24 hours (Q9).
+- AUDIT_RECORD: who, when UTC, action, reason, related reference, before/after value (US-25, ledger-rules amendment). Comment: cannot be edited or deleted.
+- Money columns use type decimal (NOT float). Mermaid does not allow commas in types, so write "decimal" and put "EGP 2 dp" in the attribute comment.
+- Mark PK, FK, UK. Correct cardinalities (||--o{ etc.) with relationship verbs.
+- Business-rule numbers (limits, fees, timeouts, retries) are CONFIG_ENTRY / FEE_RULE rows, never columns hard-coded in the diagram.
+
+CONSTRAINTS
+- Database model only, Phase 1: no migrations and no SQL files (the SQL draft is another task). Do not write docs/design/db/schema-draft.sql.
+- First lines are %% comments: purpose, last updated 2026-11-25, related US/FR ids and the entity-name mapping rule.
+- Names must match class-domain.mmd one-to-one. Report any class without a table and any table without a class.
+
+WORKFLOW
+1. Plan first: list the tables with their key columns and relationships, plus ambiguities with proposed defaults. In particular: how system ledger accounts (biller payable, PayLink fee income, commission expense) are owned. Propose a default (for example nullable wallet_id plus a biller_id for biller payable, or system wallets owned by a SYSTEM account) and offer it as Q21 for requirements.md section 9 (Q16-Q19 are taken; Q20 is reserved for the limits-check order). STOP and wait for my OK.
+2. After OK, write the file.
+3. Check it renders: try npx -y @mermaid-js/mermaid-cli -i <file> -o <temp svg> (do not commit output). If you cannot run it, say so.
+4. Compare with class-domain.mmd, state-payment.mmd, ledger-rules.md and requirements. List every mismatch; fix those inside this file.
+5. Log: append a row to docs/design/specs/prompt-log.md (create with header if missing; do NOT write docs/prompt-log.md). Columns: Date (2026-11-25) | Author (<YOUR NAME>) | Stage (Design) | Tool and model (<tool/model>) | Prompt (verbatim; if over 15 lines put it in a "Full prompts" section at the bottom) | Summary of answer (2 lines) | Verdict: "DRAFT: verdict pending" + what was wrong, missing or risky in your FIRST version. Never invent the verdict.
+6. Git: branch docs/diagram-er, commit "docs: add ER diagram (AI: Antigravity/<model>)", push the branch. No merge, no push to main, no force-push, no tags. Tell me to open the PR.
+
+OUTPUT FORMAT
+Step 1: the plan. After my OK: file path, table count, how you checked rendering, mismatch list, the prompt-log row, commit/push result.
+```
+
+Answer summary: Created `docs/design/diagrams/er-diagram.mmd` with 20 tables matching `class-domain.mmd` 1-to-1, derived WALLET balances, append-only LEDGER_ENTRY/AUDIT_RECORD, and renumbered Q20→Q21 in `requirements.md`.
+Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Flagged and resolved Q20/Q21 numbering conflict from P-09.
+
 ---
 
 ## Prompt evolution
@@ -784,6 +827,7 @@ Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermai
 | P-05 | P-06 | After the split, `specs.md` is deleted (with a coverage check and no-link check). | Avoid duplicate content across `specs.md` and the six split files. |
 | P-07 | P-08 | From creating the prompt log to creating the first design diagram (payment state machine). | Begin Phase 1 design deliverables using the established specs as the source of truth. |
 | P-08 | P-09 | From payment state diagram (`state-payment.mmd`) to the domain model class diagram (`class-domain.mmd`). | Capture all domain entities, derived Wallet balances, and module boundaries consistently with `state-payment.mmd` and specs. |
+| P-09 | P-10 | From domain class diagram (`class-domain.mmd`) to relational ER diagram (`er-diagram.mmd`). | Map all 20 domain classes 1-to-1 to `UPPER_SNAKE` tables, add PK/FK/UK and cardinalities, and align system wallet ownership as Q21. |
 
 ---
 
