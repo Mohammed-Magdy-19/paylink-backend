@@ -27,6 +27,7 @@
 | P-11 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create use-case diagram](#p-11-create-use-case-diagram) | Created `docs/design/diagrams/use-case.mmd` (`flowchart LR`) with 7 actors, 27 use cases across modules/shared services, priority `classDef`s (`[M]`/`[S]`/`[C]`), and legend for system-rule stories. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify layout readability of cross-module `<<include>>` edges. |
 | P-12 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create pay-bill sequence diagram](#p-12-create-pay-bill-sequence-diagram) | Created `docs/design/diagrams/sequence-pay-bill.mmd` with worked example (350.00 + 2.50 = 352.50 EGP), all branches (confirm, refuse, 10s timeout, async notifications), and Q20 in `requirements.md`. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify `opt` + `alt` nesting and width in Mermaid renderer. |
 | P-13 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create refund-failed sequence diagram](#p-13-create-refund-failed-sequence-diagram) | Created `docs/design/diagrams/sequence-refund-failed.mmd` covering 3 Failed triggers, atomic 352.50 EGP hold release, async notifications, 3 ILLEGAL_TRANSITION guards, and hard case 7 opt block. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify `alt` blocks and participant layout in Mermaid renderer. |
+| P-14 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create component-modules diagram](#p-14-create-component-modules-diagram) | Created `docs/design/diagrams/component-modules.mmd` (`flowchart TB`) showing the 8 modules, `BillerAdapter` + adapters, shared services (`Audit Log`, `Configuration`), async event flow, and DB/externals. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify layout readability of edges between monolith and DB/externals. |
 
 ---
 
@@ -955,6 +956,34 @@ Step 1: the plan. After my OK: file path, how you checked rendering, mismatch li
 Answer summary: Created `docs/design/diagrams/sequence-refund-failed.mmd` covering 3 Failed triggers, atomic 352.50 EGP hold release, async notifications, 3 ILLEGAL_TRANSITION guards, and hard case 7 opt block.
 Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify `alt` blocks and participant layout in Mermaid renderer.
 
+### P-14: Create component-modules diagram
+
+```text
+ROLE
+You are a senior software architect and Mermaid specialist helping a student team on PayLink (Egypt bill-payment and wallet backend).
+
+CONTEXT (read first)
+AGENTS.md, your rules files (phase-1-scope, diagrams, money-and-domain, ai-use-and-git), docs/requirements.md (sections 5 and 7), docs/design/specs/module-interfaces.md and pattern-plan.md, and the existing diagrams. If two files disagree, stop and tell me.
+
+TASK
+Create docs/design/diagrams/component-modules.mmd (EXTRA diagram, keep it only if it adds information and stays consistent): a Mermaid flowchart of the layered modular monolith. Mermaid only, no images. Follow the /new-diagram workflow.
+
+IT MUST SHOW
+- The eight modules with the exact brief names: Accounts and Wallet, Biller Catalog, Payment Processing, Biller Integration, Fees and Commissions, Notifications, Fraud Checks, Reconciliation. Arrows only through public interfaces, labelled with the operation (for example Payment Processing -> Fraud Checks: evaluate rules; -> Accounts and Wallet: hold funds). No module reads another module's tables.
+- Inside Biller Integration: one adapter per biller (ElectroCo, AquaCo, TopUpNet, NetCo optional) behind one BillerAdapter interface, so a new biller touches only this module plus configuration (NFR-4, US-29).
+- Shared services (not modules): Audit Log, Configuration. External: mock billers, SMS/Push provider, PostgreSQL database (or the DB declared by the team, TBD).
+- Asynchronous flow: payment events consumed by Notifications (in-process events in Phase 1 design, broker in Phase 2). Do not choose a broker or framework here.
+
+CONSTRAINTS
+First lines are %% comments (purpose, 2026-11-25, related NFR-3, NFR-4, US-15, US-29). Phase 1: no code. Names must match the other diagrams.
+
+WORKFLOW
+Same as the other prompts: plan first and wait for OK; write file; check rendering with mermaid-cli or say you could not; list mismatches; append a "DRAFT: verdict pending" row (with your own first-version mistakes) to docs/design/specs/prompt-log.md only (not docs/prompt-log.md); branch docs/diagram-component-modules, commit "docs: add component diagram (AI: Antigravity/<model>)", push the branch, no merge, no tags.
+```
+
+Answer summary: Created `docs/design/diagrams/component-modules.mmd` (`flowchart TB`) showing the 8 modules, `BillerAdapter` + adapters, shared services (`Audit Log`, `Configuration`), async event flow, and DB/externals.
+Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify layout readability of edges between monolith and DB/externals.
+
 ---
 
 ## Prompt evolution
@@ -972,6 +1001,7 @@ Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermai
 | P-10 | P-11 | From ER diagram (`er-diagram.mmd`) to system use-case diagram (`use-case.mmd`). | Cover all 30 user stories (`US-01`–`US-28` as actor use cases, `US-05`/`10`/`11`/`29`/`30` as system-rule legend entries) with exact priorities. |
 | P-11 | P-12 | From use-case diagram (`use-case.mmd`) to pay-bill sequence diagram (`sequence-pay-bill.mmd`). | Trace the end-to-end bill payment flow with exact worked amounts (`350.00 + 2.50 = 352.50 EGP`), atomic ledger transactions, timeout/refusal branches, and Q20. |
 | P-12 | P-13 | From pay-bill sequence (`sequence-pay-bill.mmd`) to failed-payment refund sequence (`sequence-refund-failed.mmd`). | Detail `Failed -> Refunded` hold release (`352.50 EGP`), `Unknown` no-auto-refund guards (`ILLEGAL_TRANSITION`), and hard case 7 reconciliation flagging. |
+| P-13 | P-14 | From behavioral sequence diagrams to structural modular-monolith architecture (`component-modules.mmd`). | Show public-interface boundaries, `BillerAdapter` extensibility (`NFR-4`, `US-29`), shared services, and async event flow. |
 
 ---
 
