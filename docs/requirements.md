@@ -341,6 +341,7 @@ As the business, I want the balance never to go negative.
 | Q14 | Who can top up with "agent cash"? | FR-4 | An agent credits a customer's wallet from the agent's own wallet; both sides recorded in the ledger. |
 | Q15 | What happens to payments when a biller is disabled while some are in progress? | FR-6 | In-flight payments continue. Only new payments are refused. |
 | Q16 | Is a notification failure allowed to change the payment state? | §2.7 | **No.** Notification is asynchronous and independent from the payment result. |
+| Q20 | Which wallet owns the system-level ledger accounts (`biller payable`, `PayLink fee income`, `commission expense`)? | `ledger-rules.md`, `class-domain.mmd` | `Wallet` includes a `walletType` (`CUSTOMER`, `AGENT`, `SYSTEM`); system-level ledger accounts belong to designated `SYSTEM` wallets so every `LedgerEntry` belongs to a `Wallet`. *(Note: Q17–Q19 are recorded in `business-rules.md` and `module-interfaces.md`.)* |
 
 ---
 

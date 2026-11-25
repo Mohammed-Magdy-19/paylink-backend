@@ -22,6 +22,7 @@
 | P-06 | `2026-11-25` | `[Adham Mohamed]` | Documentation structure | `[Tool, model]` | [Split specs.md and delete it afterwards](#p-06-split-specsmd-and-delete-it-afterwards) | Split `specs.md` into six files under `docs/design/specs/`, provided coverage check, deleted `specs.md`, ran no-link check, and listed verification items. | TO BE FILLED BY THE TEAM (accepted / fixed / rejected, and why) |
 | P-07 | `2026-11-25` | `[Adham Mohamed]` | Process / logging | `[Tool, model]` | [Create prompt-log.md](#p-07-create-prompt-logmd) | Created `docs/design/specs/prompt-log.md` with header, summary table, full prompts, evolution table, honesty checklist, and change history, plus fill-in and verification lists. | TO BE FILLED BY THE TEAM (accepted / fixed / rejected, and why) |
 | P-08 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Claude Opus 4.6` | [Create payment state diagram](#p-08-create-payment-state-diagram) | Created `docs/design/diagrams/state-payment.mmd`: Mermaid stateDiagram-v2 with 8 states, 9 transitions, 3 final markers, 3 notes. Cross-checked against requirements.md §5 and all spec files; 0 mismatches. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. File naming note: AGENTS.md line 22 references `state-transitions.md` but actual file is `state-transactions.md`. |
+| P-09 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create domain class diagram](#p-09-create-domain-class-diagram) | Created `docs/design/diagrams/class-domain.mmd` with 21 domain classes + 2 enums grouped by module, derived Wallet balances, append-only LedgerEntry, and Q20 in `requirements.md`. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Check if 23 nodes in one file is readable or should be split. |
 
 ---
 
@@ -729,6 +730,47 @@ Step 1: the plan. After my OK: file path, how you checked rendering, mismatch li
 Answer summary: Created `docs/design/diagrams/state-payment.mmd`: Mermaid stateDiagram-v2 with 8 states, 9 transitions, 3 final markers, 3 notes. Cross-checked against requirements.md §5 and all spec files; 0 mismatches.
 Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. File naming note: AGENTS.md line 22 references `state-transitions.md` but actual file is `state-transactions.md`.
 
+### P-09: Create domain class diagram
+
+```text
+ROLE
+You are a senior software architect and Mermaid specialist helping a student team on PayLink (Egypt bill-payment and wallet backend). Correctness with money matters more than cleverness.
+
+CONTEXT (read first)
+AGENTS.md, your rules files (phase-1-scope, diagrams, money-and-domain, requirements-writing, ai-use-and-git), docs/requirements.md (glossary section 4, rules section 5, stories section 6, decisions section 9), all specs in docs/design/specs/ (especially ledger-rules, module-interfaces, business-rules, pattern-plan) and any existing diagrams (state-payment.mmd must already exist; reuse its eight states). If two files disagree, stop and tell me which lines conflict.
+
+TASK
+Create docs/design/diagrams/class-domain.mmd: a Mermaid classDiagram of the PayLink DOMAIN model. Mermaid only, no PlantUML, no images. Follow the /new-diagram workflow.
+
+IT MUST CONTAIN
+- Candidate classes (propose the final list in your plan, use these names, no synonyms): Account (role CUSTOMER/AGENT/ADMIN/SUPPORT, verificationLevel BASIC/VERIFIED, status ACTIVE/BLOCKED, blockedUntil), Wallet, LedgerEntry, Payment, PaymentStateHistory, PaymentStatus (<<enumeration>> with exactly the 8 states), IdempotencyRecord, Biller, BillerService, BillerField (required input field such as meter number), FeeRule, Promotion, Notification, NotificationTemplate, BillerCallback, RetryAttempt, SettlementFile, ReconciliationItem, AuditRecord, ConfigEntry. RefundRequest is optional and must be marked Could (US-27).
+- Wallet shows availableBalance() and heldBalance() as DERIVED values computed from LedgerEntry. Wallet has NO stored balance attribute. LedgerEntry is append-only and has: id, wallet, ledgerAccount (enumeration: customer available, customer held, biller payable, PayLink fee income, agent wallet, commission expense), direction/signed amount (use ONE convention consistent with ledger-rules.md), paymentReference, createdAt (UTC), actor, reason.
+- Money attributes typed as Decimal (EGP, 2 dp). Never float or double.
+- Payment has: reference, idempotency key, customer account, optional agent account, billerService, billAmount, feeAmount, totalAmount, status (PaymentStatus), createdAt. Commission is a ledger entry, not a stored balance.
+- Relationships with multiplicities and verbs, e.g. Account 1 -- 1..* Wallet, Wallet 1 -- * LedgerEntry, Payment 1 -- * PaymentStateHistory, Payment 1 -- * LedgerEntry, Biller 1 -- * BillerService, BillerService 1 -- * BillerField, Payment 1 -- * Notification, Payment 1 -- * RetryAttempt, SettlementFile 1 -- * ReconciliationItem.
+- Group classes by the module names from the brief (Accounts and Wallet, Biller Catalog, Payment Processing, Biller Integration, Fees and Commissions, Notifications, Fraud Checks, Reconciliation) using namespace blocks if your renderer supports them, otherwise %% section comments. Audit and Configuration are shared services, NOT modules; say so in a comment.
+
+CONSTRAINTS
+- Domain model only: no controllers, no repositories, no design-pattern classes (patterns are Phase 2). No business logic beyond the derived balances.
+- Use the exact names from the glossary and AGENTS.md. Class names must map one-to-one to the ER entities (ER will use UPPER_SNAKE singular, e.g. LedgerEntry -> LEDGER_ENTRY).
+- First lines are %% comments: purpose, last updated 2026-11-25, related US/FR ids (US-01 to US-07, US-09 to US-14, US-16 to US-26 as relevant, FR-1 to FR-28).
+- If it exceeds ~20 classes and gets unreadable, split into class-domain.mmd (core) plus a second file and tell me.
+
+WORKFLOW
+1. Plan first: list the classes, key attributes and relationships, plus any ambiguity with a proposed default (for example, which wallet owns biller payable, fee income and commission expense accounts: propose a default and add it as Q21 in requirements.md section 9 only after I approve). STOP and wait for my OK.
+2. After OK, write the file.
+3. Check it renders: try npx -y @mermaid-js/mermaid-cli -i <file> -o <temp svg> (do not commit output). If you cannot run it, say so.
+4. Compare with state-payment.mmd, the specs and requirements. Check: 8 states identical, Wallet has no stored balance, every Must story has a home class. List every mismatch; fix those inside this file.
+5. Log: append a row to docs/design/specs/prompt-log.md (create it with the header if missing; do NOT write docs/prompt-log.md). Columns: Date (2026-11-25) | Author (<YOUR NAME>) | Stage (Design) | Tool and model (<tool/model>) | Prompt (verbatim; if over 15 lines put it in a "Full prompts" section at the bottom and reference it) | Summary of answer (2 lines) | Verdict: "DRAFT: verdict pending" + what was wrong, missing or risky in your FIRST version. Never invent the verdict.
+6. Git: branch docs/diagram-class-domain, commit "docs: add domain class diagram (AI: Antigravity/<model>)", push the branch. No merge, no push to main, no force-push, no tags. Tell me to open the PR.
+
+OUTPUT FORMAT
+Step 1: the plan. After my OK: file path, how you checked rendering, mismatch list, the prompt-log row, commit/push result.
+```
+
+Answer summary: Created `docs/design/diagrams/class-domain.mmd` with 21 domain classes + 2 enums grouped by module, derived Wallet balances, append-only LedgerEntry, and Q20 in `requirements.md`.
+Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Check if 23 nodes in one file is readable or should be split.
+
 ---
 
 ## Prompt evolution
@@ -741,6 +783,7 @@ Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermai
 | P-04 | P-05 | Split the single `specs.md` file into six smaller files under `docs/design/specs/`. | Organize Phase 1 documentation into topic-specific files. *(P-05 text not provided; based on P-04 and P-05 title.)* |
 | P-05 | P-06 | After the split, `specs.md` is deleted (with a coverage check and no-link check). | Avoid duplicate content across `specs.md` and the six split files. |
 | P-07 | P-08 | From creating the prompt log to creating the first design diagram (payment state machine). | Begin Phase 1 design deliverables using the established specs as the source of truth. |
+| P-08 | P-09 | From payment state diagram (`state-payment.mmd`) to the domain model class diagram (`class-domain.mmd`). | Capture all domain entities, derived Wallet balances, and module boundaries consistently with `state-payment.mmd` and specs. |
 
 ---
 
