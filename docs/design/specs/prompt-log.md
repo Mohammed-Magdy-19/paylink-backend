@@ -24,6 +24,7 @@
 | P-08 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Claude Opus 4.6` | [Create payment state diagram](#p-08-create-payment-state-diagram) | Created `docs/design/diagrams/state-payment.mmd`: Mermaid stateDiagram-v2 with 8 states, 9 transitions, 3 final markers, 3 notes. Cross-checked against requirements.md §5 and all spec files; 0 mismatches. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. File naming note: AGENTS.md line 22 references `state-transitions.md` but actual file is `state-transactions.md`. |
 | P-09 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create domain class diagram](#p-09-create-domain-class-diagram) | Created `docs/design/diagrams/class-domain.mmd` with 21 domain classes + 2 enums grouped by module, derived Wallet balances, append-only LedgerEntry, and Q20 in `requirements.md`. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Check if 23 nodes in one file is readable or should be split. |
 | P-10 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create ER diagram](#p-10-create-er-diagram) | Created `docs/design/diagrams/er-diagram.mmd` with 20 tables matching `class-domain.mmd` 1-to-1, derived WALLET balances, append-only LEDGER_ENTRY/AUDIT_RECORD, and renumbered Q20→Q21 in `requirements.md`. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Flagged and resolved Q20/Q21 numbering conflict from P-09. |
+| P-11 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create use-case diagram](#p-11-create-use-case-diagram) | Created `docs/design/diagrams/use-case.mmd` (`flowchart LR`) with 7 actors, 27 use cases across modules/shared services, priority `classDef`s (`[M]`/`[S]`/`[C]`), and legend for system-rule stories. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify layout readability of cross-module `<<include>>` edges. |
 
 ---
 
@@ -814,6 +815,46 @@ Step 1: the plan. After my OK: file path, table count, how you checked rendering
 Answer summary: Created `docs/design/diagrams/er-diagram.mmd` with 20 tables matching `class-domain.mmd` 1-to-1, derived WALLET balances, append-only LEDGER_ENTRY/AUDIT_RECORD, and renumbered Q20→Q21 in `requirements.md`.
 Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Flagged and resolved Q20/Q21 numbering conflict from P-09.
 
+### P-11: Create use-case diagram
+
+```text
+ROLE
+You are a senior business analyst and Mermaid specialist helping a student team on PayLink (Egypt bill-payment and wallet backend). Correctness with money matters more than cleverness.
+
+CONTEXT (read first)
+AGENTS.md, your rules files (phase-1-scope, diagrams, money-and-domain, requirements-writing, ai-use-and-git), docs/requirements.md (stakeholders section 2, stories section 6, priorities section 8, traceability section 10) and the specs in docs/design/specs/. If two files disagree, stop and tell me which lines conflict.
+
+TASK
+Create docs/design/diagrams/use-case.mmd. Mermaid has no native use-case diagram, so use a flowchart LR that looks like one: actors as rectangle nodes, use cases as stadium nodes ([ ]), a subgraph named "PayLink" as the system boundary, and nested subgraphs per module. Mermaid only, no PlantUML, no images. Follow the /new-diagram workflow.
+
+IT MUST CONTAIN
+- Actors: Customer, Agent, Admin, Support Employee; external systems Biller (ElectroCo, AquaCo, TopUpNet, NetCo optional) and SMS/Push Provider; a Scheduler/Timer as a system actor (re-query of Unknown payments, nightly reconciliation, notification retries).
+- Use cases labelled with their story id, grouped by module (Accounts and Wallet, Biller Catalog, Payment Processing, Biller Integration, Fees and Commissions, Notifications, Fraud Checks, Reconciliation). Cover every story US-01 to US-28 that has an actor goal. Examples: Customer: register (US-01), view balance and history (US-03), top up (US-04), see billers and fields (US-07), bill inquiry (US-08), pay a bill (US-09), receive SMS and push (US-22), request refund of a completed payment (US-27, mark Could). Agent: pay on behalf of a customer and earn commission (US-17), top up a customer by agent cash (Q14). Admin: manage billers and services (US-06), change fees and limits (US-24), view daily totals (US-28), upgrade to verified (US-02, support/admin). Support: search payment by reference (US-20), block and unblock account (US-21), review reconciliation report (US-26), approve refund (US-27), see undelivered notifications (US-23). Biller: confirm or refuse payment, send TopUpNet callback (US-14), send settlement file (US-26).
+- Relationships: association lines between actors and use cases (plain lines, no arrowheads), and dotted arrows labelled <<include>> or <<extend>> between use cases. For example, Pay a bill includes Calculate fee (US-16), Run fraud checks (US-18, US-19), Hold funds (US-12), Call biller (US-15), Notify customer (US-22), Write audit record (US-25); Handle timeout (US-13) extends Pay a bill; Handle callback (US-14) extends Pay a bill.
+- Mark priorities: use a Mermaid classDef for Must, Should and Could use cases (colour plus a text tag such as [M], [S], [C] so it is readable in black and white). Priorities must match requirements.md section 8; never downgrade a Must.
+- System-rule stories (US-05 ledger balances, US-10 idempotency, US-11 life cycle, US-29 add biller, US-30 concurrency) are not actor goals: put them in a legend or note stating where they are shown (state diagram, sequence diagram, class/ER diagram) rather than inventing actors.
+
+CONSTRAINTS
+- Mermaid pitfalls: quote labels with special characters or <<>>, do not use a node called "end" in lowercase, keep node ids unique.
+- First lines are %% comments: purpose, last updated 2026-11-25, related US/FR ids (US-01 to US-30).
+- Use module names exactly as in the brief. Audit Log and Configuration are shared services, not modules.
+- Keep it readable. If more than about 40 use cases, split into use-case.mmd (customer and agent) and use-case-admin-support.mmd and tell me.
+
+WORKFLOW
+1. Plan first: list actors, use cases (with story ids) and include/extend links, plus ambiguities with proposed defaults. STOP and wait for my OK.
+2. After OK, write the file.
+3. Check it renders: try npx -y @mermaid-js/mermaid-cli -i <file> -o <temp svg> (do not commit output). If you cannot run it, say so.
+4. Check that every story US-01 to US-30 is either drawn or listed in the legend with its location; compare with requirements section 10. List every mismatch; fix those inside this file.
+5. Log: append a row to docs/design/specs/prompt-log.md (create with header if missing; do NOT write docs/prompt-log.md). Columns: Date (2026-11-25) | Author (<YOUR NAME>) | Stage (Design) | Tool and model (<tool/model>) | Prompt (verbatim; if over 15 lines put it in a "Full prompts" section at the bottom) | Summary of answer (2 lines) | Verdict: "DRAFT: verdict pending" + what was wrong, missing or risky in your FIRST version. Never invent the verdict.
+6. Git: branch docs/diagram-use-case, commit "docs: add use-case diagram (AI: Antigravity/<model>)", push the branch. No merge, no push to main, no force-push, no tags. Tell me to open the PR.
+
+OUTPUT FORMAT
+Step 1: the plan. After my OK: file path, story coverage list, how you checked rendering, mismatch list, the prompt-log row, commit/push result.
+```
+
+Answer summary: Created `docs/design/diagrams/use-case.mmd` (`flowchart LR`) with 7 actors, 27 use cases across modules/shared services, priority `classDef`s (`[M]`/`[S]`/`[C]`), and legend for system-rule stories.
+Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify layout readability of cross-module `<<include>>` edges.
+
 ---
 
 ## Prompt evolution
@@ -828,6 +869,7 @@ Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermai
 | P-07 | P-08 | From creating the prompt log to creating the first design diagram (payment state machine). | Begin Phase 1 design deliverables using the established specs as the source of truth. |
 | P-08 | P-09 | From payment state diagram (`state-payment.mmd`) to the domain model class diagram (`class-domain.mmd`). | Capture all domain entities, derived Wallet balances, and module boundaries consistently with `state-payment.mmd` and specs. |
 | P-09 | P-10 | From domain class diagram (`class-domain.mmd`) to relational ER diagram (`er-diagram.mmd`). | Map all 20 domain classes 1-to-1 to `UPPER_SNAKE` tables, add PK/FK/UK and cardinalities, and align system wallet ownership as Q21. |
+| P-10 | P-11 | From ER diagram (`er-diagram.mmd`) to system use-case diagram (`use-case.mmd`). | Cover all 30 user stories (`US-01`–`US-28` as actor use cases, `US-05`/`10`/`11`/`29`/`30` as system-rule legend entries) with exact priorities. |
 
 ---
 
