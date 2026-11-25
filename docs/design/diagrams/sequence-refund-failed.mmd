@@ -7,14 +7,14 @@
 sequenceDiagram
     autonumber
 
-    participant AquaCo as AquaCo (External)
+    participant AquaCo as "AquaCo (External)"
     participant BillerInt as Biller Integration
     participant Recon as Reconciliation
     participant PayProc as Payment Processing
     participant AccWallet as Accounts and Wallet
-    participant Audit as Audit Log (Shared)
+    participant Audit as "Audit Log (Shared)"
     participant Notif as Notifications
-    participant SMS as SMS/Push Provider (External)
+    participant SMS as "SMS/Push Provider (External)"
     actor Customer
 
     Note over AquaCo,Customer: Worked example: 352.50 EGP held (bill 350.00 EGP + fee 2.50 EGP). This is Failed hold release, NOT US-27 Completed refund (Q12).
@@ -83,7 +83,7 @@ sequenceDiagram
     else Guard B: Duplicate release event on payment already Refunded
         PayProc->>PayProc: Reject/ignore with ILLEGAL_TRANSITION and log (no second ledger entry)
     else Guard C: Refund attempted on payment already Completed (final)
-        PayProc->>PayProc: Reject with ILLEGAL_TRANSITION and log (Completed is final; US-27 Could flow is separate)
+        PayProc->>PayProc: Reject with ILLEGAL_TRANSITION and log (Completed is final - US-27 Could flow is separate)
     end
 
     %% =========================================================
