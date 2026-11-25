@@ -7,10 +7,8 @@
 
 | | |
 |---|---|
-| **Team** | _team name / members_ |
-| **Phase** | 1: Requirements, design, DevOps foundation |
-| **Version / date** | v1.0 / _YYYY-MM-DD_ |
-| **Roles (Phase 1)** | Requirements & product lead: _name_ · Quality & DevOps lead: _name_ · Architecture lead: _name_ |
+| **Phase** | 1: Requirements, Design, DevOps Foundation |
+| **Version / Date** | v1.0 / 2026-11-25 |
 
 ---
 
@@ -78,6 +76,6 @@ Every code maps to existing stories in `requirements.md` section 6 and business 
 
 | Version | Date | Author | Change |
 |---|---|---|---|
-| 1.0 | _YYYY-MM-DD_ | _name_ | Split from the former specs.md (removed) |
+| 1.0 | _2026-11-25_ | _Adham Mohamed_ | Split from the former specs.md (removed) |
 
 Related files: [business-rules.md](business-rules.md) (limit and fee values), [state-transactions.md](state-transactions.md) (`Unknown` timeout and retry history), [hard-cases.md](hard-cases.md) (`IDEMPOTENCY_CONFLICT` / `US-10` and `INSUFFICIENT_FUNDS` / `US-30`).

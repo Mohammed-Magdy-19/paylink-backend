@@ -5,11 +5,8 @@
 
 | | |
 |---|---|
-| **Team** | _team name / members_ |
-| **Phase** | 1: Requirements, design, DevOps foundation |
-| **Version / date** | v1.0 / _YYYY-MM-DD_ |
-| **Roles (Phase 1)** | Requirements & product lead: _name_ · Quality & DevOps lead: _name_ · Architecture lead: _name_ |
-
+| **Phase** | 1: Requirements, Design, DevOps Foundation |
+| **Version / Date** | v1.0 / 2026-11-25 |
 ---
 
 ## Boundary values
@@ -99,6 +96,6 @@ All calculations use exact decimal arithmetic with half-up rounding to 2 decimal
 
 | Version | Date | Author | Change |
 |---|---|---|---|
-| 1.0 | _YYYY-MM-DD_ | _name_ | Split from the former specs.md (removed) |
+| 1.0 | _2026-11-25_ | _Adham Mohamed_ | Split from the former specs.md (removed) |
 
 Related files: [module-interfaces.md](module-interfaces.md) (error codes), [ledger-rules.md](ledger-rules.md) (ledger entries for fees and commissions).

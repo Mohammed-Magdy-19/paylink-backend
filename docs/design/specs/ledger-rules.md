@@ -7,11 +7,8 @@
 
 | | |
 |---|---|
-| **Team** | _team name / members_ |
-| **Phase** | 1: Requirements, design, DevOps foundation |
-| **Version / date** | v1.0 / _YYYY-MM-DD_ |
-| **Roles (Phase 1)** | Requirements & product lead: _name_ · Quality & DevOps lead: _name_ · Architecture lead: _name_ |
-
+| **Phase** | 1: Requirements, Design, DevOps Foundation |
+| **Version / Date** | v1.0 / 2026-11-25 |
 ---
 
 ## Ledger accounts used
@@ -68,6 +65,6 @@ Convention: `Debit` (`-`) decreases a wallet/liability/income account or records
 
 | Version | Date | Author | Change |
 |---|---|---|---|
-| 1.0 | _YYYY-MM-DD_ | _name_ | Split from the former specs.md (removed) |
+| 1.0 | _2026-11-25_ | _Adham Mohamed_ | Split from the former specs.md (removed) |
 
 Related files: [state-transactions.md](state-transactions.md) (`Unknown` state retry and no-auto-refund rule), [business-rules.md](business-rules.md) (fee and commission calculation rules).

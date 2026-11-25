@@ -7,10 +7,8 @@
 
 | | |
 |---|---|
-| **Team** | _team name / members_ |
-| **Phase** | 1: Requirements, design, DevOps foundation |
-| **Version / date** | v1.0 / _YYYY-MM-DD_ |
-| **Roles (Phase 1)** | Requirements & product lead: _name_ · Quality & DevOps lead: _name_ · Architecture lead: _name_ |
+| **Phase** | 1: Requirements, Design, DevOps Foundation |
+| **Version / Date** | v1.0 / 2026-11-25 |
 
 ---
 
@@ -39,6 +37,6 @@
 
 | Version | Date | Author | Change |
 |---|---|---|---|
-| 1.0 | _YYYY-MM-DD_ | _name_ | Split from the former specs.md (removed) |
+| 1.0 | _2026-11-25_ | _Adham Mohamed_ | Split from the former specs.md (removed) |
 
 Related files: [business-rules.md](business-rules.md), [state-transactions.md](state-transactions.md), [ledger-rules.md](ledger-rules.md), [module-interfaces.md](module-interfaces.md), [hard-cases.md](hard-cases.md).
