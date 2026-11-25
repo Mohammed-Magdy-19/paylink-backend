@@ -178,6 +178,6 @@ sequenceDiagram
         Notif-->>Customer: SMS & Push received (352.50 EGP, paymentRef)
     else SMS Provider down / fails (US-23)
         SMS--xNotif: Delivery failed
-        Notif->>Notif: Retry up to 3 times; after 3rd failure mark status = UNDELIVERED (visible to Support)
+        Notif->>Notif: Retry up to 3 times, then after the 3rd failure mark status = UNDELIVERED (visible to Support)
         Note over PayProc,Notif: Payment state remains unchanged (Completed / Refunded)
     end
