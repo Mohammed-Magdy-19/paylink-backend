@@ -1,0 +1,61 @@
+%% Purpose: Payment life-cycle state diagram (Mermaid stateDiagram-v2)
+%% Last updated: 2026-11-25
+%% Related stories: US-11, US-12, US-13, US-14, US-26
+%% Related FRs: FR-11, FR-12, FR-13
+
+stateDiagram-v2
+
+    [*] --> Initiated
+
+    Initiated --> FundsHeld : fraud checks pass and funds sufficient
+    Initiated --> Rejected : fraud check fails or insufficient funds
+
+    FundsHeld --> SentToBiller : request sent to biller
+
+    SentToBiller --> Completed : biller confirms
+    SentToBiller --> Failed : biller refuses
+    SentToBiller --> Unknown : no answer within 10 s timeout
+
+    Unknown --> Completed : biller later confirms (callback, retry or settlement)
+    Unknown --> Failed : biller later refuses, or reconciliation finds no payment
+
+    Failed --> Refunded : hold released to wallet
+
+    Completed --> [*]
+    Rejected --> [*]
+    Refunded --> [*]
+
+    note right of Unknown
+        Never refunded automatically.
+        Re-query 1, 5 and 15 min after timeout,
+        each attempt recorded.
+        Then waits for reconciliation.
+    end note
+
+    note right of SentToBiller
+        10 s timeout for live billers.
+        TopUpNet stays here after 'accepted'
+        until callback or reconciliation (Q10).
+    end note
+
+    note left of Failed
+        Hold released including the fee (Q13).
+    end note
+
+%% -------------------------------------------------------
+%% Transition checklist (reviewer: tick each off)
+%% -------------------------------------------------------
+%% 1. Initiated --> FundsHeld     : fraud checks pass and funds sufficient
+%% 2. Initiated --> Rejected      : fraud check fails or insufficient funds
+%% 3. FundsHeld --> SentToBiller  : request sent to biller
+%% 4. SentToBiller --> Completed  : biller confirms
+%% 5. SentToBiller --> Failed     : biller refuses
+%% 6. SentToBiller --> Unknown    : no answer within 10 s timeout
+%% 7. Unknown --> Completed       : biller later confirms (callback, retry or settlement)
+%% 8. Unknown --> Failed          : biller later refuses, or reconciliation finds no payment
+%% 9. Failed --> Refunded         : hold released to wallet
+%% -------------------------------------------------------
+%% Initial arrow: [*] --> Initiated                        (1)
+%% Final markers: Completed, Rejected, Refunded --> [*]    (3)
+%% Total arrows: 1 initial + 9 transitions + 3 finals = 13
+%% -------------------------------------------------------

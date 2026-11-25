@@ -1,0 +1,260 @@
+%% Purpose: PayLink relational database ER diagram (Mermaid erDiagram)
+%% Last updated: 2026-11-25
+%% Related stories: US-01 to US-07, US-09 to US-14, US-16 to US-26, US-27 (Could), US-29, US-30
+%% Related FRs: FR-1 to FR-28
+%% Entity-name mapping rule: 1-to-1 with class-domain.mmd in UPPER_SNAKE singular (e.g. LedgerEntry -> LEDGER_ENTRY).
+%% Note: Business-rule numbers (limits, fees, timeouts, retries) live in CONFIG_ENTRY / FEE_RULE rows, never hard-coded.
+
+erDiagram
+
+    %% =========================================================
+    %% Accounts & Wallet
+    %% =========================================================
+    ACCOUNT {
+        uuid id PK
+        string phone_number UK
+        string name
+        string role "CUSTOMER | AGENT | ADMIN | SUPPORT"
+        string verification_level "BASIC | VERIFIED"
+        string status "ACTIVE | BLOCKED"
+        datetime blocked_until "UTC nullable"
+        datetime created_at "UTC"
+    }
+
+    WALLET {
+        uuid id PK "Balances derived from LEDGER_ENTRY; NO stored available_balance or held_balance"
+        uuid account_id FK "nullable for SYSTEM wallets (Q21)"
+        uuid biller_id FK "nullable; set for BILLER_PAYABLE system wallets (Q21)"
+        string wallet_type "CUSTOMER | AGENT | SYSTEM"
+        string currency "EGP"
+        datetime created_at "UTC"
+    }
+
+    LEDGER_ENTRY {
+        uuid id PK "Append-only: no updates or deletes"
+        uuid wallet_id FK "NOT NULL"
+        uuid payment_id FK "nullable for wallet top-ups"
+        string ledger_account "CUSTOMER_AVAILABLE | CUSTOMER_HELD | BILLER_PAYABLE | PAYLINK_FEE_INCOME | AGENT_WALLET | COMMISSION_EXPENSE"
+        string direction "DEBIT | CREDIT"
+        decimal amount "EGP 2 dp"
+        datetime created_at "UTC"
+        string actor_id
+        string reason
+    }
+
+    %% =========================================================
+    %% Biller Catalog
+    %% =========================================================
+    BILLER {
+        uuid id PK
+        string code UK
+        string name
+        string protocol "REST_JSON | SOAP_XML | ASYNC_REST | CSV_BATCH"
+        boolean enabled
+        boolean supports_live_inquiry
+    }
+
+    BILLER_SERVICE {
+        uuid id PK
+        uuid biller_id FK
+        string code UK
+        string name
+        string service_type "ELECTRICITY | WATER | MOBILE_TOPUP | INTERNET"
+        decimal min_amount "EGP 2 dp"
+        decimal max_amount "EGP 2 dp"
+        boolean enabled
+    }
+
+    BILLER_FIELD {
+        uuid id PK
+        uuid biller_service_id FK
+        string field_name
+        string field_type
+        boolean required
+        string validation_pattern
+    }
+
+    %% =========================================================
+    %% Payment Processing
+    %% =========================================================
+    PAYMENT {
+        uuid id PK
+        string reference UK
+        string idempotency_key
+        uuid customer_account_id FK
+        uuid agent_account_id FK "nullable"
+        uuid biller_service_id FK
+        decimal bill_amount "EGP 2 dp"
+        decimal fee_amount "EGP 2 dp"
+        decimal total_amount "EGP 2 dp"
+        string status "Initiated | FundsHeld | SentToBiller | Completed | Failed | Unknown | Refunded | Rejected"
+        datetime created_at "UTC"
+    }
+
+    PAYMENT_STATE_HISTORY {
+        uuid id PK
+        uuid payment_id FK
+        string from_state "8 exact PaymentStatus values"
+        string to_state "8 exact PaymentStatus values"
+        string event
+        string reason
+        datetime changed_at "UTC"
+    }
+
+    IDEMPOTENCY_RECORD {
+        uuid id PK
+        uuid account_id FK "Composite UK (account_id, idempotency_key)"
+        string idempotency_key UK "Composite UK with account_id"
+        string payload_hash
+        uuid payment_id FK "nullable"
+        datetime created_at "UTC"
+        datetime expires_at "UTC: created_at + 24 hours (Q9)"
+    }
+
+    REFUND_REQUEST {
+        uuid id PK "Optional Could (US-27)"
+        uuid payment_id FK
+        uuid requested_by FK
+        string status "PENDING | APPROVED | REJECTED"
+        uuid reviewed_by FK "nullable"
+        string reason
+        datetime created_at "UTC"
+    }
+
+    %% =========================================================
+    %% Biller Integration
+    %% =========================================================
+    BILLER_CALLBACK {
+        uuid id PK
+        uuid payment_id FK
+        string biller_reference
+        string external_status
+        string payload_hash
+        datetime received_at "UTC"
+        boolean processed
+    }
+
+    RETRY_ATTEMPT {
+        uuid id PK
+        uuid payment_id FK
+        int attempt_number "1, 2, 3 (at 1, 5, 15 min)"
+        datetime scheduled_at "UTC"
+        datetime executed_at "UTC nullable"
+        string outcome
+    }
+
+    %% =========================================================
+    %% Fees & Commissions
+    %% =========================================================
+    FEE_RULE {
+        uuid id PK
+        string service_type
+        string fee_type "FIXED | PERCENTAGE | TIERED"
+        decimal fixed_amount "EGP 2 dp nullable"
+        decimal percentage_rate "nullable"
+        decimal min_fee "EGP 2 dp nullable"
+        decimal tier_threshold "EGP 2 dp nullable"
+        decimal low_tier_fee "EGP 2 dp nullable"
+        decimal high_tier_fee "EGP 2 dp nullable"
+    }
+
+    PROMOTION {
+        uuid id PK
+        uuid biller_id FK
+        decimal fee_override "EGP 2 dp (0.00)"
+        datetime starts_at "UTC"
+        datetime ends_at "UTC"
+        boolean active
+    }
+
+    %% =========================================================
+    %% Notifications
+    %% =========================================================
+    NOTIFICATION_TEMPLATE {
+        string code PK
+        string channel "SMS | PUSH"
+        string body_template
+    }
+
+    NOTIFICATION {
+        uuid id PK
+        uuid payment_id FK
+        string template_code FK
+        string channel "SMS | PUSH"
+        string recipient
+        string status "PENDING | SENT | UNDELIVERED"
+        int retry_count "max 3"
+        datetime sent_at "UTC nullable"
+        datetime created_at "UTC"
+    }
+
+    %% =========================================================
+    %% Reconciliation
+    %% =========================================================
+    SETTLEMENT_FILE {
+        uuid id PK
+        uuid biller_id FK
+        date settlement_date
+        string file_name
+        datetime received_at "UTC"
+    }
+
+    RECONCILIATION_ITEM {
+        uuid id PK
+        uuid settlement_file_id FK
+        uuid payment_id FK "nullable"
+        string external_reference
+        string match_status "MATCHED | MISMATCH | MISSING_IN_FILE | MISSING_IN_PAYLINK"
+        string resolution_note
+    }
+
+    %% =========================================================
+    %% Shared Services (NOT modules): Audit & Configuration
+    %% =========================================================
+    AUDIT_RECORD {
+        uuid id PK "Cannot be edited or deleted (US-25)"
+        string who
+        datetime when_utc "UTC"
+        string action
+        string reason
+        string related_reference
+        string before_value "nullable"
+        string after_value "nullable"
+    }
+
+    CONFIG_ENTRY {
+        string key PK "Limits, fees, timeouts, retries"
+        string value
+        string value_type
+        datetime updated_at "UTC"
+        string updated_by
+    }
+
+    %% =========================================================
+    %% Relationships
+    %% =========================================================
+    ACCOUNT ||--o{ WALLET : owns
+    BILLER ||--o{ WALLET : "has payable wallet"
+    WALLET ||--o{ LEDGER_ENTRY : records
+
+    ACCOUNT ||--o{ PAYMENT : initiates
+    ACCOUNT |o--o{ PAYMENT : facilitates
+    ACCOUNT ||--o{ IDEMPOTENCY_RECORD : scopes
+    ACCOUNT ||--o{ REFUND_REQUEST : requests
+
+    BILLER ||--|{ BILLER_SERVICE : offers
+    BILLER_SERVICE ||--|{ BILLER_FIELD : requires
+    BILLER_SERVICE ||--o{ PAYMENT : "paid for"
+    BILLER ||--o{ PROMOTION : runs
+    BILLER ||--o{ SETTLEMENT_FILE : provides
+
+    PAYMENT ||--|{ PAYMENT_STATE_HISTORY : tracks
+    PAYMENT |o--o{ LEDGER_ENTRY : generates
+    PAYMENT ||--o{ NOTIFICATION : triggers
+    PAYMENT ||--o{ RETRY_ATTEMPT : schedules
+    PAYMENT ||--o{ BILLER_CALLBACK : receives
+    PAYMENT |o--o| REFUND_REQUEST : "requested for"
+    PAYMENT |o--o{ RECONCILIATION_ITEM : "matched against"
+
+    NOTIFICATION_TEMPLATE ||--o{ NOTIFICATION : formats
+    SETTLEMENT_FILE ||--|{ RECONCILIATION_ITEM : contains
