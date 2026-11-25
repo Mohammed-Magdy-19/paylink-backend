@@ -341,6 +341,7 @@ As the business, I want the balance never to go negative.
 | Q14 | Who can top up with "agent cash"? | FR-4 | An agent credits a customer's wallet from the agent's own wallet; both sides recorded in the ledger. |
 | Q15 | What happens to payments when a biller is disabled while some are in progress? | FR-6 | In-flight payments continue. Only new payments are refused. |
 | Q16 | Is a notification failure allowed to change the payment state? | §2.7 | **No.** Notification is asynchronous and independent from the payment result. |
+| Q20 | In `sequence-pay-bill.mmd`, `diagrams.md` lists `limits check → inquiry → fee → fraud checks`, but the bill amount is only known after inquiry. What is the exact order? | `diagrams.md`, `sequence-pay-bill.mmd` | Step 1 reads the customer's verification level and configured limits (plus checks biller availability); Step 4 runs the full `Fraud Checks` chain (including single min/max and daily limit against the inquired bill amount) after inquiry and fee calculation. |
 | Q21 | Which wallet owns the system-level ledger accounts (`biller payable`, `PayLink fee income`, `commission expense`)? | `ledger-rules.md`, `class-domain.mmd`, `er-diagram.mmd` | `Wallet` includes `wallet_type` (`CUSTOMER`, `AGENT`, `SYSTEM`), nullable `account_id` FK (null for `SYSTEM` wallets), and nullable `biller_id` FK (set for `BILLER_PAYABLE` system wallets), so every `LEDGER_ENTRY.wallet_id` is NOT NULL. *(Note: Q17–Q19 are in `business-rules.md` and `module-interfaces.md`; Q20 is reserved for limits-check order.)* |
 
 ---

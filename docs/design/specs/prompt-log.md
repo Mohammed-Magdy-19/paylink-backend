@@ -25,6 +25,7 @@
 | P-09 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create domain class diagram](#p-09-create-domain-class-diagram) | Created `docs/design/diagrams/class-domain.mmd` with 21 domain classes + 2 enums grouped by module, derived Wallet balances, append-only LedgerEntry, and Q20 in `requirements.md`. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Check if 23 nodes in one file is readable or should be split. |
 | P-10 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create ER diagram](#p-10-create-er-diagram) | Created `docs/design/diagrams/er-diagram.mmd` with 20 tables matching `class-domain.mmd` 1-to-1, derived WALLET balances, append-only LEDGER_ENTRY/AUDIT_RECORD, and renumbered Q20→Q21 in `requirements.md`. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Flagged and resolved Q20/Q21 numbering conflict from P-09. |
 | P-11 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create use-case diagram](#p-11-create-use-case-diagram) | Created `docs/design/diagrams/use-case.mmd` (`flowchart LR`) with 7 actors, 27 use cases across modules/shared services, priority `classDef`s (`[M]`/`[S]`/`[C]`), and legend for system-rule stories. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify layout readability of cross-module `<<include>>` edges. |
+| P-12 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create pay-bill sequence diagram](#p-12-create-pay-bill-sequence-diagram) | Created `docs/design/diagrams/sequence-pay-bill.mmd` with worked example (350.00 + 2.50 = 352.50 EGP), all branches (confirm, refuse, 10s timeout, async notifications), and Q20 in `requirements.md`. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify `opt` + `alt` nesting and width in Mermaid renderer. |
 
 ---
 
@@ -855,6 +856,55 @@ Step 1: the plan. After my OK: file path, story coverage list, how you checked r
 Answer summary: Created `docs/design/diagrams/use-case.mmd` (`flowchart LR`) with 7 actors, 27 use cases across modules/shared services, priority `classDef`s (`[M]`/`[S]`/`[C]`), and legend for system-rule stories.
 Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify layout readability of cross-module `<<include>>` edges.
 
+### P-12: Create pay-bill sequence diagram
+
+```text
+ROLE
+You are a senior software architect and Mermaid specialist helping a student team on PayLink (Egypt bill-payment and wallet backend). Correctness with money matters more than cleverness.
+
+CONTEXT (read first)
+AGENTS.md, your rules files (phase-1-scope, diagrams, money-and-domain, requirements-writing, ai-use-and-git), docs/requirements.md (sections 2 to 6 and 9), all specs in docs/design/specs/ (ledger-rules, module-interfaces for the error codes, business-rules, state spec, hard-cases) and the existing diagrams (state-payment.mmd, class-domain.mmd). If two files disagree, stop and tell me which lines conflict.
+
+TASK
+Create docs/design/diagrams/sequence-pay-bill.mmd: a Mermaid sequenceDiagram (with autonumber) of "Customer pays an electricity bill from the wallet". Mermaid only, no PlantUML, no images. Follow the /new-diagram workflow.
+
+PARTICIPANTS (module names exactly as in the brief)
+Customer (the Agent variant is shown as an opt block), Mobile App, Payment Processing, Accounts and Wallet, Biller Catalog, Fees and Commissions, Fraud Checks, Biller Integration, ElectroCo (external biller), Notifications, SMS/Push Provider (external). Audit Log is a shared service; show it only where a money movement is recorded. A module talks to another only through its public interface.
+
+IT MUST SHOW, IN THIS ORDER (one worked example: bill 350.00 + fee 2.50 = total 352.50, basic customer, wallet with 1,000.00)
+0. Idempotency check first (US-10, Q9): alt same key and same payload returns the original result; alt same key with a different payload returns IDEMPOTENCY_CONFLICT.
+1. Identify the account, verification level and limits from configuration; check the biller is active (BILLER_UNAVAILABLE if disabled, Q15).
+2. Bill inquiry (meter number) to ElectroCo via Biller Integration; alt BILL_NOT_FOUND (no payment created).
+3. Fee calculation (2.50, Fees and Commissions) and total 352.50 shown to the customer.
+4. Payment created in Initiated; Fraud Checks chain (single min/max on the bill amount, daily limit on bill amounts in the Africa/Cairo day, velocity, blocked account). alt any rule fails: Initiated -> Rejected with the exact code from module-interfaces.md (BELOW_MIN_SINGLE, ABOVE_MAX_SINGLE, DAILY_LIMIT_EXCEEDED, VELOCITY_BLOCKED, ACCOUNT_BLOCKED), no hold and no ledger entry.
+5. Hold 352.50 BEFORE the biller call: alt INSUFFICIENT_FUNDS -> Rejected. Otherwise Initiated -> FundsHeld with ledger entries customer available -352.50 and customer held +352.50, written atomically with the state change in one database transaction. Concurrency note (US-30): the wallet row is locked so two simultaneous payments cannot overdraw.
+6. FundsHeld -> SentToBiller; call ElectroCo with a unique reference (idempotent) and a 10 s timeout. Then three alt branches:
+   a. Biller confirms -> Completed: ledger entries customer held -352.50, biller payable +350.00, PayLink fee income +2.50; opt (payment made via agent): commission expense -1.00 and agent wallet +1.00 (40% of 2.50, half-up). All in one transaction with the state change. Audit records written.
+   b. Biller refuses -> Failed -> hold released -> Refunded. Do not repeat the details: add a Note "see sequence-refund-failed.mmd" and show the customer SMS with the reason (AquaCo example in a Note).
+   c. Timeout (no answer in 10 s, e.g. ElectroCo answers in 12 s) -> Unknown: no ledger entries, money stays held, customer sees PAYMENT_PROCESSING "being processed". Note: re-query at 1, 5, 15 minutes, each attempt recorded; then waits for reconciliation; NEVER refunded automatically.
+7. Notification AFTER the payment result, asynchronous (Observer): Notifications sends SMS and push from a template with amount and reference. Show SMS provider failure with up to 3 retries then "undelivered" and a Note that notification failure NEVER changes the payment state (Q16, US-22, US-23).
+
+CONSTRAINTS
+- Use exact state names and ledger accounts. Money as exact decimals with 2 decimals, EGP.
+- Mermaid pitfalls: no semicolons or # characters inside message text; use Note over/rect/alt/opt/par; keep the diagram readable. If it gets too long, move the timeout detail to a second diagram file and tell me.
+- AMBIGUITY TO RESOLVE IN YOUR PLAN: the brief says "login and limits" first, and diagrams.md says "limits check, inquiry, fee, fraud checks", but the amount is only known after the inquiry. Propose a default (my suggestion: step 1 reads level and limits, the Fraud Checks chain including min/max runs after the fee) and list it as Q20 for requirements.md section 9. Do not decide silently.
+- First lines are %% comments: purpose, last updated 2026-11-25, related US-08, US-09, US-10, US-12, US-13, US-15, US-16, US-17, US-18, US-19, US-22, US-25, US-30 and FR-8 to FR-13, FR-16, FR-18, FR-22, FR-25.
+
+WORKFLOW
+1. Plan first: list participants, the numbered message flow and the branches, plus ambiguities with proposed defaults. STOP and wait for my OK.
+2. After OK, write the file.
+3. Check it renders: try npx -y @mermaid-js/mermaid-cli -i <file> -o <temp svg> (do not commit output). If you cannot run it, say so.
+4. Verify against diagrams.md: the order limits -> inquiry -> fee -> fraud -> hold -> biller -> confirm -> ledger/fee/commission -> notification, plus the timeout branch. Compare state names and transitions with state-payment.mmd and ledger entries with ledger-rules.md. List every mismatch; fix those inside this file.
+5. Log: append a row to docs/design/specs/prompt-log.md (create with header if missing; do NOT write docs/prompt-log.md). Columns: Date (2026-11-25) | Author (<YOUR NAME>) | Stage (Design) | Tool and model (<tool/model>) | Prompt (verbatim; if over 15 lines put it in a "Full prompts" section at the bottom) | Summary of answer (2 lines) | Verdict: "DRAFT: verdict pending" + what was wrong, missing or risky in your FIRST version. Never invent the verdict.
+6. Git: branch docs/diagram-sequence-pay-bill, commit "docs: add pay-bill sequence diagram (AI: Antigravity/<model>)", push the branch. No merge, no push to main, no force-push, no tags. Tell me to open the PR.
+
+OUTPUT FORMAT
+Step 1: the plan. After my OK: file path, how you checked rendering, mismatch list, the prompt-log row, commit/push result.
+```
+
+Answer summary: Created `docs/design/diagrams/sequence-pay-bill.mmd` with worked example (350.00 + 2.50 = 352.50 EGP), all branches (confirm, refuse, 10s timeout, async notifications), and Q20 in `requirements.md`.
+Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify `opt` + `alt` nesting and width in Mermaid renderer.
+
 ---
 
 ## Prompt evolution
@@ -870,6 +920,7 @@ Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermai
 | P-08 | P-09 | From payment state diagram (`state-payment.mmd`) to the domain model class diagram (`class-domain.mmd`). | Capture all domain entities, derived Wallet balances, and module boundaries consistently with `state-payment.mmd` and specs. |
 | P-09 | P-10 | From domain class diagram (`class-domain.mmd`) to relational ER diagram (`er-diagram.mmd`). | Map all 20 domain classes 1-to-1 to `UPPER_SNAKE` tables, add PK/FK/UK and cardinalities, and align system wallet ownership as Q21. |
 | P-10 | P-11 | From ER diagram (`er-diagram.mmd`) to system use-case diagram (`use-case.mmd`). | Cover all 30 user stories (`US-01`–`US-28` as actor use cases, `US-05`/`10`/`11`/`29`/`30` as system-rule legend entries) with exact priorities. |
+| P-11 | P-12 | From use-case diagram (`use-case.mmd`) to pay-bill sequence diagram (`sequence-pay-bill.mmd`). | Trace the end-to-end bill payment flow with exact worked amounts (`350.00 + 2.50 = 352.50 EGP`), atomic ledger transactions, timeout/refusal branches, and Q20. |
 
 ---
 
