@@ -1,16 +1,16 @@
 # PayLink — Phase 1 Submission Report
 
-> Source document for the Phase 1 PDF deliverable (`docs/reports/phase-1/`), compiled from `docs/requirements.md`, `docs/design/specs/`, and `docs/design/billers/`.
+> Source document for the Phase 1 PDF deliverable (`docs/reports/phase-1/`), compiled from `docs/requirements.md`, `docs/design/specs/`, `docs/design/billers/`, `docs/design/diagrams/`, `docs/prompt-log.md`, `app/`, `docker-compose.yml`, and `.github/workflows/ci.yml`.
 > Sections marked `[TO BE FILLED]` depend on repository artifacts or team inputs not yet finalized on this branch.
 
 | | |
 |---|---|
 | **Project** | PayLink: Bill-Payment and Digital Wallet Backend (Egypt) |
 | **Phase** | 1 — Requirements, Design, DevOps Foundation |
-| **Version / Date** | v1.0 / 2026-11-25 |
-| **Team / Members** | `[TO BE FILLED — also update docs/requirements.md header]` |
+| **Version / Date** | v1.1 / 2026-11-26 |
+| **Team / Members** | Mohammed Magdy Mohammed (`20240524`), Adham Mohamed (`20240072`), Mohamed Motaz Maher (`20240529`), Mahmoud Khaled Anwar (`20240550`) |
 | **Phase 1 Roles** | Requirements & product lead: `[TO BE FILLED]` · Quality & DevOps lead: `[TO BE FILLED]` · Architecture lead: `[TO BE FILLED]` |
-| **Declared Stack** | Language/framework: `TBD` · Database: `TBD` (10+ tables) · Diagram tool: `PlantUML / Mermaid (TBD)` · Test framework: `TBD` · CI/CD: `GitHub Actions` · Containers: `Docker + docker compose` |
+| **Declared Stack** | Language/framework: `Node.js 22.19.0 + NestJS 10 (TypeScript 5.7)` · Database: `PostgreSQL 18` (`20` tables in `er-diagram.mmd`) · Diagram tool: `Mermaid` (`.mmd`) · Test framework: `Jest 29` (`supertest`) · Linter: `ESLint 9` · CI/CD: `GitHub Actions` · Containers: `Docker + docker compose` |
 
 ---
 
@@ -103,13 +103,15 @@ Full `Given / When / Then` acceptance criteria are specified in `docs/requiremen
 | `NFR-9` | Portability | Clean clone runs via `docker compose up` | Clean-clone check before each tag | Must |
 | `NFR-10` | Configurability | Limits, fees, timeouts, retries changed without restart | Integration test changing config at runtime | Should |
 
-### 2.4 Ambiguities & Decisions (`Q1`–`Q19`)
-Decisions `Q1`–`Q16` are recorded in `docs/requirements.md` §9 (covering bill-amount scope for single/daily limits, `Africa/Cairo` calendar day, half-up rounding, inclusive `200.00` tier, `0.00` promotion commission, exact-bill-amount payment, sliding 60 s attempt velocity window, 24 h per-account idempotency retention, `10 s` timeout scope for `TopUpNet`/`NetCo`, reconciliation handling of `Unknown`, Could-scope refund rules, fee release on failure, agent cash wallet source, disabling billers mid-flight, and notification decoupling).
+### 2.4 Ambiguities & Decisions (`Q1`–`Q21`)
+Decisions `Q1`–`Q16`, `Q20`, and `Q21` are recorded in `docs/requirements.md` §9 (covering bill-amount scope for single/daily limits, `Africa/Cairo` calendar day, half-up rounding, inclusive `200.00` tier, `0.00` promotion commission, exact-bill-amount payment, sliding 60 s attempt velocity window, 24 h per-account idempotency retention, `10 s` timeout scope for `TopUpNet`/`NetCo`, reconciliation handling of `Unknown`, Could-scope refund rules, fee release on failure, agent cash wallet source, disabling billers mid-flight, and notification decoupling).
 
-Additional spec decisions in `docs/design/specs/`:
+Additional decisions in `docs/design/specs/` and `docs/requirements.md` §9:
 - **`Q17` (`business-rules.md`):** `40%` agent commission uses exact decimal half-up rounding to 2 decimals.
 - **`Q18` (`module-interfaces.md`):** `AquaCo` uses `subscriber/account number` (`SubscriberNo`) and supports live inquiry *(Assumption, to be confirmed with the instructor's biller contract)*.
 - **`Q19` (`module-interfaces.md`):** `NetCo` uses `customer/account number` (`customerAccountNumber`) *(Assumption, to be confirmed with the instructor's biller contract)*.
+- **`Q20` (`requirements.md` §9, `sequence-pay-bill.mmd`):** Step 1 reads verification level, configured limits, and biller availability; Step 4 runs the full `Fraud Checks` chain (including single min/max and daily limit against the inquired bill amount) after inquiry and fee calculation.
+- **`Q21` (`requirements.md` §9, `er-diagram.mmd`):** `Wallet` includes `wallet_type` (`CUSTOMER`, `AGENT`, `SYSTEM`), nullable `account_id` FK (null for `SYSTEM` wallets), and nullable `biller_id` FK (set for `BILLER_PAYABLE` system wallets), so every `LEDGER_ENTRY.wallet_id` is `NOT NULL`.
 
 ---
 
@@ -163,40 +165,40 @@ Only these transitions are legal (`Completed`, `Rejected`, and `Refunded` are fi
 ### 3.5 Hard Cases Index (`hard-cases.md`)
 All 8 brief hard cases map to user stories and planned automated tests: `HC 1` (`US-10` / `test_duplicate_request_one_charge`), `HC 2` (`US-13` / `test_timeout_becomes_unknown_money_held`), `HC 3` (`US-12` / `test_failed_payment_releases_hold`), `HC 4` (`US-30` / `test_concurrent_payments_one_rejected`), `HC 5` (`US-23` / `test_sms_down_retried_then_undelivered`), `HC 6` (`US-14` / `test_duplicate_callback_ignored`), `HC 7` (`US-26` / `test_settlement_difference_flagged`), `HC 8` (`US-29` / `test_new_biller_added_without_changing_modules`).
 
-### 3.6 Diagrams, OpenAPI, and Schema Drafts (`[TO BE COMPLETED BEFORE PHASE 1 TAG]`)
-Source files under `docs/design/diagrams/`, `docs/design/api/`, and `docs/design/db/` are not yet present in this branch:
-- `[ ]` `docs/design/diagrams/use-case.puml` (required)
-- `[ ]` `docs/design/diagrams/class-domain.puml` (required)
-- `[ ]` `docs/design/diagrams/sequence-pay-bill.puml` (required)
-- `[ ]` `docs/design/diagrams/sequence-refund-failed.puml` (required)
-- `[ ]` `docs/design/diagrams/state-payment.puml` (required)
-- `[ ]` `docs/design/diagrams/er-diagram.puml` (required — 10+ relational tables)
-- `[ ]` `docs/design/api/openapi-draft.yaml` & `docs/design/db/schema-draft.sql`
+### 3.6 Diagrams, OpenAPI, and Schema Drafts (`docs/design/diagrams/`)
+All 7 Mermaid (`.mmd`) diagram sources are present under `docs/design/diagrams/`; optional API/DB draft files are not yet created:
+- `[x]` `docs/design/diagrams/use-case.mmd` (required — 7 actors, 27 use cases, system-rule legend)
+- `[x]` `docs/design/diagrams/class-domain.mmd` (required — 21 domain classes + 2 enums grouped by module)
+- `[x]` `docs/design/diagrams/sequence-pay-bill.mmd` (required — end-to-end pay-bill flow with worked `350.00 + 2.50 = 352.50 EGP` example)
+- `[x]` `docs/design/diagrams/sequence-refund-failed.mmd` (required — `Failed -> Refunded` hold release and `ILLEGAL_TRANSITION` guards)
+- `[x]` `docs/design/diagrams/state-payment.mmd` (required — 8 states, 9 transitions, 3 final states)
+- `[x]` `docs/design/diagrams/er-diagram.mmd` (required — 20 relational tables)
+- `[x]` `docs/design/diagrams/component-modules.mmd` (extra — layered modular monolith & `BillerAdapter` extensibility)
+- `[ ]` `docs/design/api/openapi-draft.yaml` & `docs/design/db/schema-draft.sql` (not yet present)
 
-> `[INSERT RENDERED DIAGRAM EXPORTS / LINKS AND AI-ERROR FIX NOTES HERE ONCE DIAGRAMS ARE MERGED]`
+> **Note:** Mermaid rendering (`mermaid-cli`) was not verified locally when `P-08`–`P-14` were created; syntax was reviewed manually. `[INSERT RENDERED EXPORTS / LINKS IF REQUIRED FOR PDF]`
 
 ---
 
-## 4. DevOps Foundation (`[TO BE COMPLETED BEFORE PHASE 1 TAG]`)
+## 4. DevOps Foundation
 
 ### 4.1 Git & Repository Governance (`.agents/rules/ai-use-and-git.md`)
-- `main` branch protected; all changes arrive via feature branches and peer-reviewed pull requests (PRs `#1` and `#2` already merged via PRs).
+- `main` branch protected; all changes arrive via feature branches and peer-reviewed pull requests.
 - Conventional commits; commits where AI wrote >50% name the tool; no force-push or history rewrites; `phase-1` tag created only when all deliverables pass.
 - No secrets or real personal data in git; `.env.example` only.
 
 ### 4.2 Skeleton App, Docker, and CI Verification Checklist
-These required Phase 1 files are not yet present on this branch and must be completed and verified before creating the `phase-1` tag:
-- `[ ]` `app/` bare skeleton (entry point + `/health` endpoint + at least 1 passing test, no Phase 2 domain logic)
-- `[ ]` `app/Dockerfile` and `docker-compose.yml` (starts empty app + database from clean clone via `docker compose up`)
-- `[ ]` `.env.example`, `.gitignore`, `README.md`, `.github/pull_request_template.md`
-- `[ ]` `.github/workflows/ci.yml` (builds, lints, and runs at least 1 test on every push)
-- `[ ]` **Clean-clone & green-CI evidence:** `[INSERT CI RUN URL AND SCREENSHOT/OUTPUT OF docker compose up ON CLEAN CLONE]`
+- `[x]` `app/` bare skeleton: `app/src/main.ts`, `app/src/app.module.ts`, `app/src/health.controller.ts` (`GET /health` runs `SELECT 1` on PostgreSQL and returns `{"status": "ok"}`), `app/tests/health.spec.ts` (1 passing Jest test; `npm run lint`, `npm run build`, and `npm test` pass locally).
+- `[x]` `app/Dockerfile` (multi-stage `node:22.19.0-alpine3.21`, non-root `node` user) and `docker-compose.yml` (`app` + `db` `postgres:18-alpine`, healthchecks on both, `depends_on: condition: service_healthy`, `pgdata` named volume).
+- `[x]` `.env.example`, `.gitignore`, `README.md`, `.github/pull_request_template.md`.
+- `[x]` `.github/workflows/ci.yml` (`permissions: contents: read`, runs on every `push` and `pull_request`, npm cache, ESLint, TypeScript build, `docker build`, Jest with `test-results.json` artifact upload).
+- `[ ]` **Clean-clone & green-CI evidence:** `[INSERT CI RUN URL AND SCREENSHOT/OUTPUT OF docker compose up ON CLEAN CLONE]` *(Docker was not installed in the authoring environment, so `docker compose up --build` must be verified on a teammate machine / CI).*
 
 ---
 
-## 5. Prompt Log Summary (`docs/design/specs/prompt-log.md`)
+## 5. Prompt Log Summary (`docs/prompt-log.md`)
 
-> **Action item:** Consolidate or mirror entries into `docs/prompt-log.md` (currently empty, required by Brief §5), complete the team verdicts for `P-01`–`P-07`, and mark at least **2** entries where the first AI answer was wrong and the prompt was improved.
+> **Action item:** Complete the team verdicts for `P-01`–`P-07` and `P-08`–`P-15` (currently `DRAFT: verdict pending`), and mark at least **2** entries where the first AI answer was wrong and the prompt was improved. (Note: `docs/design/specs/prompt-log.md` also exists as a legacy/companion log.)
 
 | ID | Date | Author | Stage | Tool & Model | Summary | Verdict |
 |---|---|---|---|---|---|---|
@@ -207,12 +209,19 @@ These required Phase 1 files are not yet present on this branch and must be comp
 | `P-05` | `2026-11-25` | `[Adham Mohamed]` | Documentation structure | `[Tool, model]` | Requested splitting `specs.md` into six files | `TO BE FILLED BY THE TEAM` |
 | `P-06` | `2026-11-25` | `[Adham Mohamed]` | Documentation structure | `[Tool, model]` | Split `specs.md` into `docs/design/specs/*.md`, checked coverage, deleted `specs.md` | `TO BE FILLED BY THE TEAM` |
 | `P-07` | `2026-11-25` | `[Adham Mohamed]` | Process / logging | `[Tool, model]` | Created `docs/design/specs/prompt-log.md` | `TO BE FILLED BY THE TEAM` |
-| `P-08` | `2026-11-25` | `Mohamed Motaz Maher` | Design (biller contracts) | `Antigravity (Gemini)` | Created `electroco-v1.md`, `aquaco.md`, `topupnet.md`, `netco.md` | **Accepted:** follows Phase 1 scope, exact decimal EGP strings, and `Q18`/`Q19` |
-| `P-09` | `2026-11-25` | `Mohamed Motaz Maher` | Documentation / reporting | `Antigravity (Gemini)` | Created `docs/reports/phase-1/phase-1-report.md` with explicit placeholders | `DRAFT: verdict pending` |
+| `P-08` | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Claude Opus 4.6` | Created `docs/design/diagrams/state-payment.mmd` | `DRAFT: verdict pending` |
+| `P-09` | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | Created `docs/design/diagrams/class-domain.mmd` | `DRAFT: verdict pending` |
+| `P-10` | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | Created `docs/design/diagrams/er-diagram.mmd` (`20` tables) & `Q21` | `DRAFT: verdict pending` |
+| `P-11` | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | Created `docs/design/diagrams/use-case.mmd` | `DRAFT: verdict pending` |
+| `P-12` | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | Created `docs/design/diagrams/sequence-pay-bill.mmd` & `Q20` | `DRAFT: verdict pending` |
+| `P-13` | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | Created `docs/design/diagrams/sequence-refund-failed.mmd` | `DRAFT: verdict pending` |
+| `P-14` | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | Created `docs/design/diagrams/component-modules.mmd` | `DRAFT: verdict pending` |
+| `P-15` | `2026-11-25` | `Mohamed Motaz Maher` | Design (biller contracts) | `Antigravity (Gemini)` | Created `electroco-v1.md`, `aquaco.md`, `topupnet.md`, `netco.md` | **Accepted:** follows Phase 1 scope, exact decimal EGP strings, and `Q18`/`Q19` |
+| `P-16` | `2026-11-26` | `Mohammed Magdy Mohammed` | DevOps | `Antigravity / Gemini` | Created NestJS + PostgreSQL 18 + Jest skeleton, Docker, CI, PR template, `README.md` | `DRAFT: verdict pending` |
 
 ---
 
-## 6. Known Repository Consistency Items to Resolve Before `phase-1` Tag
-1. `AGENTS.md` line 28 cites `docs/design/specs/state-transitions.md`, while the file on disk is `docs/design/specs/state-transactions.md`.
-2. `docs/prompt-log.md` is currently empty while `docs/design/specs/prompt-log.md` contains `P-01`–`P-09`.
-3. `docs/requirements.md` header (`team`, `date`, `Phase 1 roles`, §3 `Technology declaration`) still contains placeholders.
+## 6. Remaining Items to Complete Before `phase-1` Tag
+1. Assign `Phase 1 Roles` in `docs/requirements.md` and `phase-1-report.md` (`Requirements & product lead`, `Quality & DevOps lead`, `Architecture lead`).
+2. Complete team verdicts in `docs/prompt-log.md` (`P-01`–`P-07`, `P-08`–`P-14`, `P-16`) and remove or archive the legacy `docs/design/specs/prompt-log.md` if superseded.
+3. Run `docker compose up --build` on a clean clone and attach the green CI run URL in §4.2.

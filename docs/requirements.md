@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Team** | _team name / members_ |
+| **Team** | Mohammed Magdy Mohammed (20240524), Adham Mohamed (20240072), Mohamed Motaz Maher (20240529), Mahmoud Khaled Anwar (20240550) |
 | **Phase** | 1: Requirements, design, DevOps foundation |
-| **Version / date** | v1.0 / _YYYY-MM-DD_ |
+| **Version / date** | v1.0 / 2026-11-26 |
 | **Roles (Phase 1)** | Requirements & product lead: _name_ · Quality & DevOps lead: _name_ · Architecture lead: _name_ |
 
 ---
@@ -48,13 +48,13 @@ We are building a backend that:
 
 | Item | Decision |
 |---|---|
-| Language / framework | _e.g. Python FastAPI / Java Spring Boot / .NET / Node NestJS_ |
-| Database | _e.g. PostgreSQL_ (relational, 10+ tables, migrations in the repository) |
-| Diagram tool | _PlantUML or Mermaid_ |
-| Test framework | _e.g. pytest / JUnit / xUnit / Jest_ |
+| Language / framework | Node.js 22.19.0 + NestJS 10 (TypeScript 5.7) |
+| Database | PostgreSQL 18 (relational, 20 tables in `er-diagram.mmd`) |
+| Diagram tool | Mermaid (`.mmd`) |
+| Test framework | Jest 29 (`supertest`) |
 | CI/CD | GitHub Actions |
 | Containers | Docker + docker compose |
-| AI assistant(s) | _tool names and models_ |
+| AI assistant(s) | Antigravity (Gemini, Claude Opus 4.6) |
 
 ---
 
