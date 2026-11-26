@@ -28,8 +28,8 @@
 | P-12 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create pay-bill sequence diagram](#p-12-create-pay-bill-sequence-diagram) | Created `docs/design/diagrams/sequence-pay-bill.mmd` with worked example (350.00 + 2.50 = 352.50 EGP), all branches (confirm, refuse, 10s timeout, async notifications), and Q20 in `requirements.md`. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify `opt` + `alt` nesting and width in Mermaid renderer. |
 | P-13 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create refund-failed sequence diagram](#p-13-create-refund-failed-sequence-diagram) | Created `docs/design/diagrams/sequence-refund-failed.mmd` covering 3 Failed triggers, atomic 352.50 EGP hold release, async notifications, 3 ILLEGAL_TRANSITION guards, and hard case 7 opt block. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify `alt` blocks and participant layout in Mermaid renderer. |
 | P-14 | `2026-11-25` | `Antigravity (AI)` | Design | `Antigravity / Gemini` | [Create component-modules diagram](#p-14-create-component-modules-diagram) | Created `docs/design/diagrams/component-modules.mmd` (`flowchart TB`) showing the 8 modules, `BillerAdapter` + adapters, shared services (`Audit Log`, `Configuration`), async event flow, and DB/externals. | DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify layout readability of edges between monolith and DB/externals. |
-| P-08 | `2026-11-25` | Mohamed Motaz Maher | Design (biller contracts) | Antigravity (Gemini) | [Create Phase 1 biller contract specs](#p-08-create-phase-1-biller-contract-specs) | Generated `electroco-v1.md`, `aquaco.md`, `topupnet.md`, and `netco.md` under `docs/design/billers/` aligned with `requirements.md` and `docs/design/specs/`. | Accepted: all four biller contracts follow Phase 1 scope, exact decimal EGP strings, and mock assumption rules (`Q18`/`Q19`). |
-| P-15 | `2026-11-26` | Mohammed Magdy Mohammed | DevOps | Antigravity / Gemini | [Create Phase 1 DevOps foundation](#p-15-create-phase-1-devops-foundation) | Created NestJS + PostgreSQL 18 + Jest bare skeleton (`GET /health`), `Dockerfile`, `docker-compose.yml`, `.env.example`, `.gitignore`, GitHub Actions CI, PR template, and `README.md`. | DRAFT: verdict pending |
+| P-15 | `2026-11-25` | Mohamed Motaz Maher | Design (biller contracts) | Antigravity (Gemini) | [Create Phase 1 biller contract specs](#p-15-create-phase-1-biller-contract-specs) | Generated `electroco-v1.md`, `aquaco.md`, `topupnet.md`, and `netco.md` under `docs/design/billers/` aligned with `requirements.md` and `docs/design/specs/`. | Accepted: all four biller contracts follow Phase 1 scope, exact decimal EGP strings, and mock assumption rules (`Q18`/`Q19`). |
+| P-16 | `2026-11-26` | Mohammed Magdy Mohammed | DevOps | Antigravity / Gemini | [Create Phase 1 DevOps foundation](#p-16-create-phase-1-devops-foundation) | Created NestJS + PostgreSQL 18 + Jest bare skeleton (`GET /health`), `Dockerfile`, `docker-compose.yml`, `.env.example`, `.gitignore`, GitHub Actions CI, PR template, and `README.md`. | DRAFT: verdict pending |
 
 ---
 
@@ -985,7 +985,7 @@ Same as the other prompts: plan first and wait for OK; write file; check renderi
 
 Answer summary: Created `docs/design/diagrams/component-modules.mmd` (`flowchart TB`) showing the 8 modules, `BillerAdapter` + adapters, shared services (`Audit Log`, `Configuration`), async event flow, and DB/externals.
 Verdict: DRAFT: verdict pending — Could not verify rendering (Node.js / mermaid-cli not installed); syntax reviewed manually. Verify layout readability of edges between monolith and DB/externals.
-### P-08: Create Phase 1 biller contract specs
+### P-15: Create Phase 1 biller contract specs
 
 ```text
 ROLE
@@ -1034,7 +1034,7 @@ and cross-link style of docs/design/specs/.
 Answer summary: Generated `electroco-v1.md`, `aquaco.md`, `topupnet.md`, and `netco.md` under `docs/design/billers/` aligned with `requirements.md` and `docs/design/specs/`.
 Verdict: Accepted: all four biller contracts follow Phase 1 scope, exact decimal EGP strings, and mock assumption rules (`Q18`/`Q19`).
 
-### P-15: Create Phase 1 DevOps foundation
+### P-16: Create Phase 1 DevOps foundation
 
 ```text
 ROLE
@@ -1104,6 +1104,6 @@ Verdict: DRAFT: verdict pending
 | Version | Date | Author | Change |
 |---|---|---|---|
 | 1.0 | _2026-11-25_ | _Adham Mohamed_ | First prompt log |
-| 1.1 | _2026-11-25_ | _Mohamed Motaz Maher_ | Added P-08 (Phase 1 biller contract specs) |
+| 1.1 | _2026-11-25_ | _Mohamed Motaz Maher_ | Added P-15 (formerly P-08, Phase 1 biller contract specs) |
 | 1.2 | _2026-11-25_ | _Mahmoud Khaled Anwar_ | Added P-09 to P-14 (Phase 1 diagrams) |
-| 1.3 | _2026-11-26_ | _Mohammed Magdy Mohammed_ | Added P-15 (Phase 1 DevOps foundation) |
+| 1.3 | _2026-11-26_ | _Mohammed Magdy Mohammed_ | Added P-16 (Phase 1 DevOps foundation) |
