@@ -19,7 +19,7 @@ If two files disagree, stop and tell me which lines conflict. Do not silently pi
 
 1. Money is an exact decimal type, never float or double. Currency is EGP, 2 decimals.
 2. A balance is the sum of ledger entries. Never overwrite a balance. Ledger entries are append-only.
-3. Payment states are exactly: Initiated, FundsHeld, SentToBiller, Completed, Failed, Unknown, Refunded, Rejected. Only the transitions in `docs/design/specs/state-transitions.md` are legal.
+3. Payment states are exactly: Initiated, FundsHeld, SentToBiller, Completed, Failed, Unknown, Refunded, Rejected. Only the transitions in `docs/design/specs/state-transactions.md` are legal.
 4. A payment in Unknown is never refunded automatically.
 5. Limits, fees, timeouts, retries and commission come from configuration, not code.
 6. Notification failure never changes a payment's state.
@@ -41,6 +41,6 @@ If two files disagree, stop and tell me which lines conflict. Do not silently pi
 
 ## Stack (fill in once declared; fixed after Phase 1)
 
-- Language/framework: TBD
-- Database: TBD
-- Test framework: TBD
+- Language/framework: Node.js 22.19.0 + NestJS 10 (TypeScript 5.7)
+- Database: PostgreSQL 18
+- Test framework: Jest 29 (supertest)
