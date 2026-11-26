@@ -192,7 +192,8 @@ All 7 Mermaid (`.mmd`) diagram sources are present under `docs/design/diagrams/`
 - `[x]` `app/Dockerfile` (multi-stage `node:22.19.0-alpine3.21`, non-root `node` user) and `docker-compose.yml` (`app` + `db` `postgres:18-alpine`, healthchecks on both, `depends_on: condition: service_healthy`, `pgdata` named volume).
 - `[x]` `.env.example`, `.gitignore`, `README.md`, `.github/pull_request_template.md`.
 - `[x]` `.github/workflows/ci.yml` (`permissions: contents: read`, runs on every `push` and `pull_request`, npm cache, ESLint, TypeScript build, `docker build`, Jest with `test-results.json` artifact upload).
-- `[ ]` **Clean-clone & green-CI evidence:** `[INSERT CI RUN URL AND SCREENSHOT/OUTPUT OF docker compose up ON CLEAN CLONE]` *(Docker was not installed in the authoring environment, so `docker compose up --build` must be verified on a teammate machine / CI).*
+- `[x]` **Clean-clone `docker compose up --build`:** Verified on clean clone (`paylink-clean`, `CI/CD_Building` branch): `paylink-clean-db-1` (`PostgreSQL 18.7`) reached `Healthy`, `app-1` (`NestJS`) started and mapped `/health`, and `GET http://localhost:3000/health` returned `{"status":"ok"}`.
+- `[ ]` **Green CI run URL:** `[INSERT GITHUB ACTIONS CI RUN URL]`
 
 ---
 
@@ -224,4 +225,4 @@ All 7 Mermaid (`.mmd`) diagram sources are present under `docs/design/diagrams/`
 ## 6. Remaining Items to Complete Before `phase-1` Tag
 1. Assign `Phase 1 Roles` in `docs/requirements.md` and `phase-1-report.md` (`Requirements & product lead`, `Quality & DevOps lead`, `Architecture lead`).
 2. Complete team verdicts in `docs/prompt-log.md` (`P-01`–`P-07`, `P-08`–`P-14`, `P-16`) and remove or archive the legacy `docs/design/specs/prompt-log.md` if superseded.
-3. Run `docker compose up --build` on a clean clone and attach the green CI run URL in §4.2.
+3. Attach the green GitHub Actions CI run URL in §4.2, merge the PR into `main`, and create/push the `phase-1` tag.
